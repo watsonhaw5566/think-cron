@@ -584,4 +584,47 @@ final class SchedulerTest extends TestCase
         $processedCount = array_count_values($event->triggered)[TaskProcessed::class] ?? 0;
         self::assertSame(2, $processedCount, 'Two tasks should have been processed successfully');
     }
+
+    // === getTasks()：验证 cron:show 依赖的任务列表获取 ===
+
+    public function test_get_tasks_returns_all_registered_task_instances(): void
+    {
+        $app = $this->makeApp(
+            [AlwaysDueTask::class, AlwaysDueTaskB::class, AlwaysDueTaskC::class],
+            new MemoryCache()
+        );
+
+        $tasks = (new Scheduler($app))->getTasks();
+
+        self::assertCount(3, $tasks);
+        self::assertInstanceOf(AlwaysDueTask::class, $tasks[0]);
+        self::assertInstanceOf(AlwaysDueTaskB::class, $tasks[1]);
+        self::assertInstanceOf(AlwaysDueTaskC::class, $tasks[2]);
+    }
+
+    public function test_get_tasks_filters_invalid_entries(): void
+    {
+        $app = $this->makeApp(
+            [
+                AlwaysDueTask::class,
+                'NotExistingClass',
+                new \stdClass(),
+                AlwaysDueTaskB::class,
+            ],
+            new MemoryCache()
+        );
+
+        $tasks = (new Scheduler($app))->getTasks();
+
+        self::assertCount(2, $tasks);
+    }
+
+    public function test_get_tasks_returns_empty_array_when_no_tasks(): void
+    {
+        $app = $this->makeApp([], new MemoryCache());
+
+        $tasks = (new Scheduler($app))->getTasks();
+
+        self::assertEmpty($tasks);
+    }
 }

@@ -4,6 +4,7 @@ namespace watsonhaw\cron;
 
 use watsonhaw\cron\command\Run;
 use watsonhaw\cron\command\Schedule;
+use watsonhaw\cron\command\Show;
 
 class Service extends \think\Service
 {
@@ -13,6 +14,7 @@ class Service extends \think\Service
         $this->commands([
             Run::class,
             Schedule::class,
+            Show::class,
         ]);
 
         // 仅在安装了 think-swoole 的环境注册，避免非 Swoole 项目因顶层
