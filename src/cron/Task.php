@@ -69,11 +69,14 @@ abstract class Task
         $this->app->invoke([$this, 'handle'], [], true);
     }
 
-    final public function run()
+    /**
+     * @return bool 任务是否真正执行（被 withoutOverlapping 跳过时返回 false）
+     */
+    final public function run(): bool
     {
         if ($this->withoutOverlapping &&
             !$this->createMutex()) {
-            return;
+            return false;
         }
 
         try {
@@ -83,6 +86,8 @@ abstract class Task
                 $this->removeMutex();
             }
         }
+
+        return true;
     }
 
     /**
@@ -120,13 +125,18 @@ abstract class Task
     }
 
     /**
-     * 创建互斥锁
-     * 注意: 避免 has+set 两步操作造成 TOCTOU 竞态,
-     * 直接依赖 set 返回值作为是否成功的判断依据。
+     * 创建互斥锁，防止任务重叠执行。
+     * 必须先 has() 判断：ThinkPHP 的 set() 会无条件覆盖已有值，
+     * 没有 has() 的话互斥检查完全失效。
+     * 注意：多进程/多服务器下仍存在 TOCTOU 竞态窗口，如需真正的原子互斥，
+     * 请使用支持 SETNX 的缓存驱动（如 Redis）。
      */
     protected function createMutex(): bool
     {
         $name = $this->mutexName();
+        if ($this->cache->has($name)) {
+            return false;
+        }
         return $this->cache->set($name, time(), $this->expiresAt);
     }
 
