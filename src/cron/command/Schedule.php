@@ -19,11 +19,7 @@ class Schedule extends Command
     {
         $output->writeln('<info>Cron schedule started.</info> Press Ctrl+C to stop.');
 
-        if ('\\' == DIRECTORY_SEPARATOR) {
-            $command = 'start /B "' . PHP_BINARY . '" think cron:run';
-        } else {
-            $command = 'nohup "' . PHP_BINARY . '" think cron:run >> /dev/null 2>&1 &';
-        }
+        $command = '"' . PHP_BINARY . '" think cron:run';
 
         $shouldStop = false;
 
