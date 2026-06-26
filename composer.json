@@ -37,10 +37,12 @@
     "topthink/framework": "^8.0",
     "topthink/think-swoole": "^4.0",
     "phpunit/phpunit": "^10.0",
-    "mockery/mockery": "^1.6"
+    "mockery/mockery": "^1.6",
+    "phpstan/phpstan": "^2.0"
   },
   "scripts": {
-    "test": "phpunit"
+    "test": "phpunit",
+    "analyze": "phpstan --no-progress --memory-limit=1G"
   },
   "config": {
     "preferred-install": "dist",
