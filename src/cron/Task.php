@@ -125,6 +125,10 @@ abstract class Task
     {
         $name = $this->mutexName();
 
+        if ($this->cache->has($name)) {
+            return false;
+        }
+
         return $this->cache->set($name, time(), $this->expiresAt);
     }
 

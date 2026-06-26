@@ -38,7 +38,7 @@ class Scheduler
             if (is_subclass_of($taskClass, Task::class)) {
 
                 /** @var Task $task */
-                $task = $this->app->invokeClass($taskClass, [$this->cache]);
+                $task = $this->app->invokeClass($taskClass, [$this->app, $this->cache]);
                 if ($task->isDue()) {
 
                     if (!$task->filtersPass()) {
