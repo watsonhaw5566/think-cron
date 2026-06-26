@@ -77,7 +77,7 @@ abstract class Task
     {
         if ($this->withoutOverlapping &&
             !$this->createMutex()) {
-            $this->app->event->trigger(new TaskSkipped($this));
+            $this->app->event->trigger(new TaskSkipped($this, 'overlapping'));
             return false;
         }
 
