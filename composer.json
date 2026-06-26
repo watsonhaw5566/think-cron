@@ -1,11 +1,15 @@
 {
-  "name": "yunwuxin/think-cron",
+  "name": "watsonhaw/think-cron",
   "description": "think cron task extend for thinkphp8",
   "license": "Apache-2.0",
   "authors": [
     {
       "name": "yunwuxin",
       "email": "448901948@qq.com"
+    },
+    {
+      "name": "watsonhaw",
+      "email": "348748267@qq.com"
     }
   ],
   "require": {
