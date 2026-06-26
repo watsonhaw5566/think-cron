@@ -39,19 +39,26 @@ class Scheduler
 
                 /** @var Task $task */
                 $task = $this->app->invokeClass($taskClass, [$this->app, $this->cache]);
-                if ($task->isDue()) {
+
+                try {
+                    if (!$task->isDue()) {
+                        continue;
+                    }
 
                     if (!$task->filtersPass()) {
                         continue;
                     }
+                } catch (Throwable $e) {
+                    $this->app->event->trigger(new TaskFailed($task, $e));
+                    continue;
+                }
 
-                    $ran = $task->onOneServer
-                        ? $this->runSingleServerTask($task)
-                        : $this->runTask($task);
+                $ran = $task->onOneServer
+                    ? $this->runSingleServerTask($task)
+                    : $this->runTask($task);
 
-                    if ($ran) {
-                        $this->app->event->trigger(new TaskProcessed($task));
-                    }
+                if ($ran) {
+                    $this->app->event->trigger(new TaskProcessed($task));
                 }
             }
         }
