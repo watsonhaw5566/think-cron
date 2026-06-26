@@ -45,13 +45,13 @@ class Scheduler
                         continue;
                     }
 
-                    if ($task->onOneServer) {
-                        $this->runSingleServerTask($task);
-                    } else {
-                        $this->runTask($task);
-                    }
+                    $ran = $task->onOneServer
+                        ? $this->runSingleServerTask($task)
+                        : $this->runTask($task);
 
-                    $this->app->event->trigger(new TaskProcessed($task));
+                    if ($ran) {
+                        $this->app->event->trigger(new TaskProcessed($task));
+                    }
                 }
             }
         }
@@ -71,24 +71,32 @@ class Scheduler
         return true;
     }
 
-    protected function runSingleServerTask($task)
+    /**
+     * @param Task $task
+     * @return bool 任务是否实际执行（false 表示被跳过）
+     */
+    protected function runSingleServerTask(Task $task): bool
     {
         if ($this->serverShouldRun($task)) {
-            $this->runTask($task);
-        } else {
-            $this->app->event->trigger(new TaskSkipped($task));
+            return $this->runTask($task);
         }
+
+        $this->app->event->trigger(new TaskSkipped($task));
+        return false;
     }
 
     /**
-     * @param $task Task
+     * @param Task $task
+     * @return bool 任务是否实际执行
      */
-    protected function runTask($task)
+    protected function runTask(Task $task): bool
     {
         try {
             $task->run();
         } catch (Exception $e) {
             $this->app->event->trigger(new TaskFailed($task, $e));
         }
+
+        return true;
     }
 }
