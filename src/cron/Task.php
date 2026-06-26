@@ -6,6 +6,7 @@ use Closure;
 use Cron\CronExpression;
 use think\App;
 use think\Cache;
+use yunwuxin\cron\event\TaskSkipped;
 
 abstract class Task
 {
@@ -76,6 +77,7 @@ abstract class Task
     {
         if ($this->withoutOverlapping &&
             !$this->createMutex()) {
+            $this->app->event->trigger(new TaskSkipped($this));
             return false;
         }
 
