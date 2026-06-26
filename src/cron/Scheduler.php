@@ -30,6 +30,23 @@ class Scheduler
         $this->cache = $app->cache->store($app->config->get('cron.store', null));
     }
 
+    /**
+     * 返回所有已注册的任务实例列表。
+     * 配置中类型不合法（非 Task 子类）的条目会被静默跳过。
+     *
+     * @return list<Task>
+     */
+    public function getTasks(): array
+    {
+        $tasks = [];
+        foreach ($this->tasks as $taskClass) {
+            if (is_string($taskClass) && class_exists($taskClass) && is_subclass_of($taskClass, Task::class)) {
+                $tasks[] = $this->app->invokeClass($taskClass, [$this->app, $this->cache]);
+            }
+        }
+        return $tasks;
+    }
+
     public function run()
     {
         $this->startedAt = Carbon::now();

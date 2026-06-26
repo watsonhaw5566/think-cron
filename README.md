@@ -8,7 +8,7 @@
 composer require watsonhaw/think-cron
 ```
 
-安装完成后会自动注册两个命令：`cron:run` 与 `cron:schedule`。
+安装完成后会自动注册三个命令：`cron:run`、`cron:schedule` 与 `cron:show`。
 
 ## 使用方法
 
@@ -92,6 +92,28 @@ Cron schedule started. Press Ctrl+C to stop.
 #### 方法三：Swoole 常驻（可选）
 
 如果项目已安装 `topthink/think-swoole`，扩展会在 `swoole.init` 事件中自动注册一个独立的 `cron` Worker，使用 `Swoole\Timer::tick` 每 60 秒运行一次调度器，无需额外配置。
+
+### 查看已注册任务
+
+开发调试时可用 `cron:show` 查看所有已注册任务及其配置：
+
+```
+php think cron:show
+```
+
+输出示例：
+
+```
++--------------------------+-----------+---------------------+----------+----------+-------------+
+| 任务类                   | 周期      | 下一次运行          | 时区     | 防重叠   | 单服务器    |
++--------------------------+-----------+---------------------+----------+----------+-------------+
+| app\task\DemoTask       | 0 0 * * * | 2026-06-27 00:00:00 | (默认)   | 是       | 否          |
+| app\task\HourlyTask     | 0 * * * * | 2026-06-26 15:00:00 | (默认)   | 否       | 是          |
++--------------------------+-----------+---------------------+----------+----------+-------------+
+共 2 个任务
+```
+
+> 如果尚未在 `config/cron.php` 中注册任何任务，会显示「没有注册任何计划任务。」
 
 ---
 
@@ -208,3 +230,4 @@ Event::listen(\watsonhaw\cron\event\TaskFailed::class, function ($event) {
 | --- | --- |
 | `php think cron:run` | 单次扫描并执行所有到期任务 |
 | `php think cron:schedule` | 常驻进程，每分钟调用一次 `cron:run`（Ctrl+C 停止） |
+| `php think cron:show` | 以表格形式查看当前已注册的所有计划任务及其运行配置 |
