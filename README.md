@@ -91,7 +91,8 @@ Cron schedule started. Press Ctrl+C to stop.
 
 #### 方法三：Swoole 常驻（可选）
 
-如果项目已安装 `topthink/think-swoole`，扩展会在 `swoole.init` 事件中自动注册一个独立的 `cron` Worker，使用 `Swoole\Timer::tick` 每 60 秒运行一次调度器，无需额外配置。
+如果项目已安装 `topthink/think-swoole`，扩展会在 `swoole.init` 事件中自动注册一个独立的 `cron` Worker，使用
+`Swoole\Timer::tick` 每 60 秒运行一次调度器，无需额外配置。
 
 ### 查看已注册任务
 
@@ -121,28 +122,28 @@ php think cron:show
 
 `configure()` 中可通过以下方法链式调用设置执行周期（方法均返回 `$this`，支持链式调用）：
 
-| 方法 | 说明 |
-| --- | --- |
-| `->everyMinute()` | 每分钟执行 |
-| `->everyFiveMinutes()` | 每 5 分钟执行 |
-| `->everyTenMinutes()` | 每 10 分钟执行 |
-| `->everyThirtyMinutes()` | 每 30 分钟执行 |
-| `->hourly()` | 每小时整点执行 |
-| `->hourlyAt($offset)` | 每小时的第 `$offset` 分钟执行 |
-| `->daily()` / `->dailyAt('13:00')` / `->at('13:00')` | 每天 / 指定时间执行 |
-| `->twiceDaily(1, 13)` | 每天执行两次（01:00 与 13:00） |
-| `->weekdays()` / `->weekends()` | 工作日 / 周末执行 |
-| `->mondays()` … `->sundays()` | 指定周几执行 |
-| `->days(1, 3, 5)` 或 `->days([1, 3, 5])` | 指定每周的若干天执行（0=周日 … 6=周六） |
-| `->weekly()` / `->weeklyOn(1, '8:00')` | 每周 / 每周指定日指定时间 |
-| `->monthly()` / `->monthlyOn(4, '15:00')` | 每月 / 每月指定日指定时间 |
-| `->twiceMonthly(1, 16)` | 每月执行两次（1 号与 16 号） |
-| `->quarterly()` | 每季度执行 |
-| `->yearly()` | 每年执行 |
-| `->expression('0 */2 * * *')` | 使用原生 Cron 表达式 |
-| `->timezone('Asia/Shanghai')` | 设置任务时区（不设置则使用系统默认） |
-| `->between('22:00', '01:00')` | 仅在指定时间区间内执行（支持跨午夜，如 23:00 → 01:00） |
-| `->unlessBetween('00:00', '06:00')` | 在指定时间区间内**跳过**执行 |
+| 方法                                                   | 说明                                 |
+|------------------------------------------------------|------------------------------------|
+| `->everyMinute()`                                    | 每分钟执行                              |
+| `->everyFiveMinutes()`                               | 每 5 分钟执行                           |
+| `->everyTenMinutes()`                                | 每 10 分钟执行                          |
+| `->everyThirtyMinutes()`                             | 每 30 分钟执行                          |
+| `->hourly()`                                         | 每小时整点执行                            |
+| `->hourlyAt($offset)`                                | 每小时的第 `$offset` 分钟执行               |
+| `->daily()` / `->dailyAt('13:00')` / `->at('13:00')` | 每天 / 指定时间执行                        |
+| `->twiceDaily(1, 13)`                                | 每天执行两次（01:00 与 13:00）              |
+| `->weekdays()` / `->weekends()`                      | 工作日 / 周末执行                         |
+| `->mondays()` … `->sundays()`                        | 指定周几执行                             |
+| `->days(1, 3, 5)` 或 `->days([1, 3, 5])`              | 指定每周的若干天执行（0=周日 … 6=周六）            |
+| `->weekly()` / `->weeklyOn(1, '8:00')`               | 每周 / 每周指定日指定时间                     |
+| `->monthly()` / `->monthlyOn(4, '15:00')`            | 每月 / 每月指定日指定时间                     |
+| `->twiceMonthly(1, 16)`                              | 每月执行两次（1 号与 16 号）                  |
+| `->quarterly()`                                      | 每季度执行                              |
+| `->yearly()`                                         | 每年执行                               |
+| `->expression('0 */2 * * *')`                        | 使用原生 Cron 表达式                      |
+| `->timezone('Asia/Shanghai')`                        | 设置任务时区（不设置则使用系统默认）                 |
+| `->between('22:00', '01:00')`                        | 仅在指定时间区间内执行（支持跨午夜，如 23:00 → 01:00） |
+| `->unlessBetween('00:00', '06:00')`                  | 在指定时间区间内**跳过**执行                   |
 
 示例：
 
@@ -158,6 +159,9 @@ protected function configure()
 
 ## 任务控制
 
+> **分布式部署须启用 Redis**：在多台服务器部署时，必须在 `config/cron.php` 中配置 `store` 为 Redis
+> 驱动，否则跨服务器任务控制将失效，多台机无法防止重叠执行或器同时执行同一任务。
+
 ### 防止重叠执行 `withoutOverlapping`
 
 使用缓存（推荐 Redis）作为互斥锁，避免上一次尚未结束时新的一次又被触发。
@@ -170,7 +174,8 @@ $this->daily()
 $this->hourly()->withoutOverlapping(60);
 ```
 
-> 注意：`createMutex()` 内部先 `has()` 再 `set()`，在多进程/多服务器下仍存在 TOCTOU 竞态窗口；如需真正的原子互斥，请使用支持 SETNX 的缓存驱动（如 Redis）。
+> 注意：`createMutex()` 内部先 `has()` 再 `set()`，在多进程/多服务器下仍存在 TOCTOU 竞态窗口；如需真正的原子互斥，请使用支持
+> SETNX 的缓存驱动（如 Redis）。
 
 ### 仅在一台服务器运行 `onOneServer`
 
@@ -202,11 +207,11 @@ $this->hourly()
 
 任务运行过程中会触发以下事件，可在应用中通过 `Event::listen` 或服务绑定订阅：
 
-| 事件类 | 说明 | 可用属性 |
-| --- | --- | --- |
-| `watsonhaw\cron\event\TaskProcessed` | 任务成功执行后 | `$event->task`（任务实例）、`$event->getName()`（任务类名） |
-| `watsonhaw\cron\event\TaskSkipped` | 任务被跳过时（单服务器 / 重叠执行） | `$event->task`、`$event->reason`（`single_server` 或 `overlapping`） |
-| `watsonhaw\cron\event\TaskFailed` | 任务执行抛出异常时 | `$event->task`、`$event->exception` |
+| 事件类                                  | 说明                  | 可用属性                                                             |
+|--------------------------------------|---------------------|------------------------------------------------------------------|
+| `watsonhaw\cron\event\TaskProcessed` | 任务成功执行后             | `$event->task`（任务实例）、`$event->getName()`（任务类名）                   |
+| `watsonhaw\cron\event\TaskSkipped`   | 任务被跳过时（单服务器 / 重叠执行） | `$event->task`、`$event->reason`（`single_server` 或 `overlapping`） |
+| `watsonhaw\cron\event\TaskFailed`    | 任务执行抛出异常时           | `$event->task`、`$event->exception`                               |
 
 示例：
 
@@ -226,8 +231,8 @@ Event::listen(\watsonhaw\cron\event\TaskFailed::class, function ($event) {
 
 ## 命令速查
 
-| 命令 | 说明 |
-| --- | --- |
-| `php think cron:run` | 单次扫描并执行所有到期任务 |
+| 命令                        | 说明                                 |
+|---------------------------|------------------------------------|
+| `php think cron:run`      | 单次扫描并执行所有到期任务                      |
 | `php think cron:schedule` | 常驻进程，每分钟调用一次 `cron:run`（Ctrl+C 停止） |
-| `php think cron:show` | 以表格形式查看当前已注册的所有计划任务及其运行配置 |
+| `php think cron:show`     | 以表格形式查看当前已注册的所有计划任务及其运行配置          |
