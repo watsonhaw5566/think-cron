@@ -46,11 +46,17 @@ trait ManagesFrequencies
     private function inTimeInterval($startTime, $endTime)
     {
         return function () use ($startTime, $endTime) {
-            return Carbon::now($this->timezone)->between(
-                Carbon::parse($startTime, $this->timezone),
-                Carbon::parse($endTime, $this->timezone),
-                true
-            );
+            $now   = Carbon::now($this->timezone);
+            $start = Carbon::parse($startTime, $this->timezone);
+            $end   = Carbon::parse($endTime, $this->timezone);
+
+            // 跨午夜场景：start(23:00) > end(01:00) 表示区间跨越当天零点
+            // 应理解为「now >= 23:00 或 now <= 01:00」
+            if ($start->gt($end)) {
+                return $now->gte($start) || $now->lte($end);
+            }
+
+            return $now->between($start, $end, true);
         };
     }
 
