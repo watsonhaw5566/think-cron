@@ -76,14 +76,12 @@ abstract class Task
             return;
         }
 
-        register_shutdown_function(function () {
-            $this->removeMutex();
-        });
-
         try {
             $this->execute();
         } finally {
-            $this->removeMutex();
+            if ($this->withoutOverlapping) {
+                $this->removeMutex();
+            }
         }
     }
 
