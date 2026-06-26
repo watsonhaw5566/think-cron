@@ -21,7 +21,7 @@ abstract class Task
     /** @var bool 任务是否可以重叠执行 */
     public $withoutOverlapping = false;
 
-    /** @var int 最大执行时间(重叠执行检查用) */
+    /** @var int 互斥锁过期秒数(重叠执行检查用,避免锁残留导致任务永不执行) */
     public $expiresAt = 1440;
 
     /** @var bool 分布式部署 是否仅在一台服务器上运行 */
@@ -116,29 +116,29 @@ abstract class Task
         return 'task-' . sha1(static::class);
     }
 
-    protected function removeMutex()
+    protected function removeMutex(): bool
     {
         return $this->cache->delete($this->mutexName());
     }
 
-    protected function createMutex()
+    /**
+     * 创建互斥锁
+     * 注意: 避免 has+set 两步操作造成 TOCTOU 竞态,
+     * 直接依赖 set 返回值作为是否成功的判断依据。
+     */
+    protected function createMutex(): bool
     {
         $name = $this->mutexName();
-
-        if ($this->cache->has($name)) {
-            return false;
-        }
-
         return $this->cache->set($name, time(), $this->expiresAt);
     }
 
-    protected function existsMutex()
+    protected function existsMutex(): bool
     {
-        if ($this->cache->has($this->mutexName())) {
-            $mutex = $this->cache->get($this->mutexName());
-            return $mutex + $this->expiresAt > time();
+        $mutex = $this->cache->get($this->mutexName());
+        if ($mutex === null) {
+            return false;
         }
-        return false;
+        return (int) $mutex + $this->expiresAt > time();
     }
 
     public function when(Closure $callback)
@@ -161,9 +161,7 @@ abstract class Task
 
         $this->expiresAt = $expiresAt;
 
-        return $this->skip(function () {
-            return $this->existsMutex();
-        });
+        return $this;
     }
 
     public function onOneServer()
