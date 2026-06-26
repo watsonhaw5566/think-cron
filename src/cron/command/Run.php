@@ -1,14 +1,14 @@
 <?php
 
-namespace yunwuxin\cron\command;
+namespace watsonhaw\cron\command;
 
 use Carbon\Carbon;
 use think\console\Command;
 use think\exception\Handle;
-use yunwuxin\cron\event\TaskFailed;
-use yunwuxin\cron\event\TaskProcessed;
-use yunwuxin\cron\event\TaskSkipped;
-use yunwuxin\cron\Scheduler;
+use watsonhaw\cron\event\TaskFailed;
+use watsonhaw\cron\event\TaskProcessed;
+use watsonhaw\cron\event\TaskSkipped;
+use watsonhaw\cron\Scheduler;
 
 class Run extends Command
 {

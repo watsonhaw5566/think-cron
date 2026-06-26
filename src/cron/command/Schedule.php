@@ -1,6 +1,6 @@
 <?php
 
-namespace yunwuxin\cron\command;
+namespace watsonhaw\cron\command;
 
 use Symfony\Component\Process\Process;
 use think\console\Command;

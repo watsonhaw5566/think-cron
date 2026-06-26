@@ -19,12 +19,12 @@
   },
   "autoload": {
     "psr-4": {
-      "yunwuxin\\cron\\": "src/cron"
+      "watsonhaw\\cron\\": "src/cron"
     }
   },
   "autoload-dev": {
     "psr-4": {
-      "yunwuxin\\cron\\tests\\": "tests"
+      "watsonhaw\\cron\\tests\\": "tests"
     }
   },
   "extra": {
@@ -33,7 +33,7 @@
         "cron": "src/config.php"
       },
       "services": [
-        "yunwuxin\\cron\\Service"
+        "watsonhaw\\cron\\Service"
       ]
     }
   },

@@ -1,9 +1,9 @@
 <?php
 
-namespace yunwuxin\cron;
+namespace watsonhaw\cron;
 
-use yunwuxin\cron\command\Run;
-use yunwuxin\cron\command\Schedule;
+use watsonhaw\cron\command\Run;
+use watsonhaw\cron\command\Schedule;
 
 class Service extends \think\Service
 {

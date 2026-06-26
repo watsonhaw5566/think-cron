@@ -1,14 +1,14 @@
 <?php
 
-namespace yunwuxin\cron\tests;
+namespace watsonhaw\cron\tests;
 
 use Exception;
 use PHPUnit\Framework\TestCase;
-use yunwuxin\cron\event\TaskEvent;
-use yunwuxin\cron\event\TaskFailed;
-use yunwuxin\cron\event\TaskProcessed;
-use yunwuxin\cron\event\TaskSkipped;
-use yunwuxin\cron\Task;
+use watsonhaw\cron\event\TaskEvent;
+use watsonhaw\cron\event\TaskFailed;
+use watsonhaw\cron\event\TaskProcessed;
+use watsonhaw\cron\event\TaskSkipped;
+use watsonhaw\cron\Task;
 
 final class TaskEventTest extends TestCase
 {
