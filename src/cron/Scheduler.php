@@ -35,7 +35,7 @@ class Scheduler
         $this->startedAt = Carbon::now();
         foreach ($this->tasks as $taskClass) {
 
-            if (is_subclass_of($taskClass, Task::class)) {
+            if (is_string($taskClass) && class_exists($taskClass) && is_subclass_of($taskClass, Task::class)) {
 
                 /** @var Task $task */
                 $task = $this->app->invokeClass($taskClass, [$this->app, $this->cache]);
@@ -88,16 +88,15 @@ class Scheduler
 
     /**
      * @param Task $task
-     * @return bool 任务是否实际执行
+     * @return bool 任务是否成功执行（异常或 withoutOverlapping 跳过时返回 false）
      */
     protected function runTask(Task $task): bool
     {
         try {
-            $task->run();
+            return $task->run();
         } catch (Throwable $e) {
             $this->app->event->trigger(new TaskFailed($task, $e));
+            return false;
         }
-
-        return true;
     }
 }
