@@ -1,328 +1,210 @@
 # think-cron 计划任务
 
+适用于 ThinkPHP 8 的计划任务（定时任务）扩展，支持丰富的周期表达、单服务器执行、防重叠执行、事件系统以及 think-swoole 集成。
+
 ## 安装方法
 
-```bash
+```
 composer require watsonhaw/think-cron
 ```
 
-安装后，ThinkPHP 会自动注册服务提供者。
+安装完成后会自动注册两个命令：`cron:run` 与 `cron:schedule`。
 
 ## 使用方法
 
-### 1. 创建任务类
+### 创建任务类
 
-在 `app/task` 目录（或你喜欢的任意目录）下创建任务类，继承 `watsonhaw\cron\Task`：
+继承 `yunwuxin\cron\Task`，在 `configure()` 中设置执行周期，在 `execute()` 中实现业务逻辑：
 
 ```php
 <?php
 
 namespace app\task;
 
-use watsonhaw\cron\Task;
+use yunwuxin\cron\Task;
 
 class DemoTask extends Task
 {
     /**
-     * 配置任务的执行周期和其他选项
+     * 配置任务的执行周期与行为（构造时自动调用一次）
      */
     protected function configure()
     {
         // 每天凌晨 00:00 执行
         $this->daily();
-
-        // 或者使用更精确的时间
-        // $this->dailyAt('02:30');
-
-        // 或者直接写 Cron 表达式
-        // $this->expression('*/5 * * * *');
     }
 
     /**
-     * 任务的实际执行逻辑
+     * 执行任务的业务逻辑
      */
     protected function execute()
     {
-        // ... 具体的任务执行代码
+        // ...具体的任务执行
     }
 }
 ```
 
-### 2. 配置任务
+### 配置
 
-创建配置文件 `config/cron.php`，注册你的任务类：
+配置文件位于 `config/cron.php`：
 
 ```php
-<?php
-
 return [
-    // 要执行的任务列表（完整类名）
+    // 任务的完整类名列表
     'tasks' => [
         \app\task\DemoTask::class,
-        \app\task\AnotherTask::class,
     ],
 
-    // 可选：指定缓存驱动（用于 withoutOverlapping / onOneServer 的互斥锁）
-    // 默认使用 ThinkPHP 的默认缓存配置
+    // （可选）使用的缓存驱动，用于互斥锁/单服务器判断；留空使用默认缓存
+    // 推荐使用 Redis 等支持 SETNX 的驱动以获得真正的原子互斥
     'store' => null,
 ];
 ```
 
-### 3. 运行任务监听
+### 任务监听
 
-有两种方式触发任务调度：
+提供三种运行方式，可根据部署场景任选其一。
 
-#### 方式一（推荐）：常驻进程方式
+#### 方法一：常驻进程（推荐）
 
-启动一个常驻后台进程，每分钟自动触发调度器。可配合 supervisor 使用：
+`cron:schedule` 会每分钟自动执行一次 `cron:run`，可配合 supervisor 等工具守护运行：
 
-```bash
+```
 php think cron:schedule
 ```
 
-supervisor 配置示例：
+启动后会看到提示：
 
-```ini
-[program:think-cron]
-process_name=%(program_name)s
-command=php /path/to/your/project/think cron:schedule
-autostart=true
-autorestart=true
-user=www-data
-numprocs=1
-redirect_stderr=true
-stdout_logfile=/path/to/log/cron.log
+```
+Cron schedule started. Press Ctrl+C to stop.
 ```
 
-#### 方式二：系统 crontab 方式
+当 `cron:run` 异常退出时会在终端打印退出码，便于排查问题。
 
-在服务器的系统计划任务中添加（每分钟执行一次调度器）：
+#### 方法二：系统 Cron
 
-```bash
-* * * * * php /path/to/your/project/think cron:run >> /dev/null 2>&1
+在系统计划任务中添加，由系统层面每分钟触发：
+
+```
+* * * * * php /path/to/think cron:run >> /dev/null 2>&1
 ```
 
-## 可用的周期方法
+#### 方法三：Swoole 常驻（可选）
 
-### 基本周期
+如果项目已安装 `topthink/think-swoole`，扩展会在 `swoole.init` 事件中自动注册一个独立的 `cron` Worker，使用 `Swoole\Timer::tick` 每 60 秒运行一次调度器，无需额外配置。
+
+---
+
+## 任务周期（频率）设置
+
+`configure()` 中可通过以下方法链式调用设置执行周期（方法均返回 `$this`，支持链式调用）：
+
+| 方法 | 说明 |
+| --- | --- |
+| `->everyMinute()` | 每分钟执行 |
+| `->everyFiveMinutes()` | 每 5 分钟执行 |
+| `->everyTenMinutes()` | 每 10 分钟执行 |
+| `->everyThirtyMinutes()` | 每 30 分钟执行 |
+| `->hourly()` | 每小时整点执行 |
+| `->hourlyAt($offset)` | 每小时的第 `$offset` 分钟执行 |
+| `->daily()` / `->dailyAt('13:00')` / `->at('13:00')` | 每天 / 指定时间执行 |
+| `->twiceDaily(1, 13)` | 每天执行两次（01:00 与 13:00） |
+| `->weekdays()` / `->weekends()` | 工作日 / 周末执行 |
+| `->mondays()` … `->sundays()` | 指定周几执行 |
+| `->days(1, 3, 5)` 或 `->days([1, 3, 5])` | 指定每周的若干天执行（0=周日 … 6=周六） |
+| `->weekly()` / `->weeklyOn(1, '8:00')` | 每周 / 每周指定日指定时间 |
+| `->monthly()` / `->monthlyOn(4, '15:00')` | 每月 / 每月指定日指定时间 |
+| `->twiceMonthly(1, 16)` | 每月执行两次（1 号与 16 号） |
+| `->quarterly()` | 每季度执行 |
+| `->yearly()` | 每年执行 |
+| `->expression('0 */2 * * *')` | 使用原生 Cron 表达式 |
+| `->timezone('Asia/Shanghai')` | 设置任务时区（不设置则使用系统默认） |
+| `->between('22:00', '01:00')` | 仅在指定时间区间内执行（支持跨午夜，如 23:00 → 01:00） |
+| `->unlessBetween('00:00', '06:00')` | 在指定时间区间内**跳过**执行 |
+
+示例：
 
 ```php
-// 每分钟执行
-$this->everyMinute();
-
-// 每 5 分钟执行
-$this->everyFiveMinutes();
-
-// 每 10 分钟执行
-$this->everyTenMinutes();
-
-// 每 30 分钟执行
-$this->everyThirtyMinutes();
-
-// 每小时整点执行
-$this->hourly();
-
-// 每小时的第 15 分钟执行
-$this->hourlyAt(15);
-
-// 每天 00:00 执行
-$this->daily();
-
-// 每天指定时间执行
-$this->dailyAt('02:30');
-$this->at('02:30');       // dailyAt 的别名
-
-// 每天指定小时的整点执行（例如：01:00 和 13:00）
-$this->twiceDaily(1, 13);
-```
-
-### 按周/月/季度/年
-
-```php
-// 每周日 00:00 执行
-$this->weekly();
-
-// 每周三 10:30 执行
-$this->weeklyOn(3, '10:30');
-
-// 每月 1 日 00:00 执行
-$this->monthly();
-
-// 每月 15 日 06:20 执行
-$this->monthlyOn(15, '6:20');
-
-// 每月 1 日和 16 日 00:00 执行
-$this->twiceMonthly(1, 16);
-
-// 每季度第一天 00:00 执行
-$this->quarterly();
-
-// 每年 1 月 1 日 00:00 执行
-$this->yearly();
-```
-
-### 按星期几
-
-```php
-// 工作日（周一至周五）执行
-$this->weekdays();
-
-// 周末（周六、周日）执行
-$this->weekends();
-
-// 具体某一天执行
-$this->mondays();
-$this->tuesdays();
-$this->wednesdays();
-$this->thursdays();
-$this->fridays();
-$this->saturdays();
-$this->sundays();
-
-// 自定义星期几（0=周日, 1=周一, ..., 6=周六）
-$this->days([1, 3, 5]);
-$this->days(0, 6);
-```
-
-### 自定义 Cron 表达式
-
-```php
-// 使用标准 Cron 表达式
-$this->expression('30 2 * * 1-5');  // 工作日凌晨 2:30 执行
-```
-
-## 其他选项
-
-### 时区设置
-
-```php
-$this->timezone('Asia/Shanghai');
-```
-
-### 区间时间过滤
-
-```php
-// 仅在 08:00 - 22:00 之间执行
-$this->between('08:00', '22:00');
-
-// 在 23:00 - 01:00 之间也能正确处理（跨午夜场景）
-$this->between('23:00', '01:00');
-
-// 排除特定时间区间（区间内不执行）
-$this->unlessBetween('12:00', '14:00');
-```
-
-### 自定义过滤条件
-
-```php
-// 仅当条件为 true 时执行
-$this->when(function () {
-    return config('app.env') === 'production';
-});
-
-// 当条件为 true 时跳过
-$this->skip(function () {
-    return date('Y-m-d') === '2024-01-01';
-});
-```
-
-### 防止任务重叠执行
-
-```php
-// 防止上一次执行未完成时，下一次又开始
-// 参数为互斥锁的过期时间（秒），默认 1440 秒
-$this->withoutOverlapping(1440);
-```
-
-### 多服务器环境
-
-```php
-// 仅在一台服务器上运行（通过缓存实现）
-// 需要确保所有服务器使用同一个缓存实例
-$this->onOneServer();
-```
-
-### 多个选项组合使用
-
-```php
-$this->dailyAt('03:00')
-     ->timezone('Asia/Shanghai')
-     ->withoutOverlapping()
-     ->onOneServer();
-```
-
-## 事件系统
-
-调度器会触发以下事件，你可以在 ThinkPHP 的事件系统中监听它们：
-
-| 事件类 | 触发时机 |
-|---------|---------|
-| `watsonhaw\cron\event\TaskProcessed` | 任务成功执行后 |
-| `watsonhaw\cron\event\TaskSkipped` | 任务被跳过时（重叠/其他服务器已执行） |
-| `watsonhaw\cron\event\TaskFailed` | 任务执行抛出异常时 |
-
-**监听示例**：
-
-```php
-use watsonhaw\cron\event\TaskProcessed;
-use watsonhaw\cron\event\TaskFailed;
-use watsonhaw\cron\event\TaskSkipped;
-
-Event::listen(TaskProcessed::class, function (TaskProcessed $event) {
-    $taskClass = get_class($event->task);
-    // ... 记录日志、发送通知等
-});
-
-Event::listen(TaskFailed::class, function (TaskFailed $event) {
-    $taskClass = get_class($event->task);
-    $exception = $event->exception;
-    // ... 发送告警
-});
-
-Event::listen(TaskSkipped::class, function (TaskSkipped $event) {
-    $taskClass = get_class($event->task);
-    $reason    = $event->reason;  // 'overlapping' 或 'single_server'
-    // ...
-});
-```
-
-使用 `cron:schedule` 命令运行时，控制台会自动输出这些事件信息。
-
-## 完整示例
-
-```php
-<?php
-
-namespace app\task;
-
-use watsonhaw\cron\Task;
-
-class DailyReportTask extends Task
+protected function configure()
 {
-    protected function configure()
-    {
-        // 每天凌晨 2 点（上海时区）执行
-        $this->dailyAt('02:00')
-             ->timezone('Asia/Shanghai')
-             ->withoutOverlapping()     // 防止重叠
-             ->onOneServer();           // 仅一台服务器执行
-    }
-
-    protected function execute()
-    {
-        // 生成每日报表并发送邮件
-        $report = $this->generateReport();
-        $this->sendReportEmail($report);
-    }
-
-    private function generateReport() { /* ... */ }
-    private function sendReportEmail($report) { /* ... */ }
+    // 工作日每天 09:30 执行，且仅在 09:00 - 18:00 区间内才会生效
+    $this->weekdays()->at('09:30')->between('09:00', '18:00');
 }
 ```
 
-## 注意事项
+---
 
-1. **`withoutOverlapping` 和 `onOneServer` 依赖缓存系统** — 建议使用 Redis 等共享缓存驱动，避免文件缓存导致多进程状态不一致。
-2. **`cron:schedule` 为常驻进程** — 建议使用 supervisor 管理，确保进程意外退出后能自动重启。
-3. **时区影响** — 如果设置了 `timezone`，会以该时区的时间判断是否到期，注意与服务器系统时区的差异。
-4. **事件触发** — 任务 `execute` 方法中抛出的异常会被捕获并触发 `TaskFailed` 事件，不会中断调度器运行。
+## 任务控制
+
+### 防止重叠执行 `withoutOverlapping`
+
+使用缓存（推荐 Redis）作为互斥锁，避免上一次尚未结束时新的一次又被触发。
+
+```php
+$this->daily()
+     ->withoutOverlapping(); // 默认为锁 1440 分钟（24 小时）过期
+
+// 或自定义锁过期秒数
+$this->hourly()->withoutOverlapping(60);
+```
+
+> 注意：`createMutex()` 内部先 `has()` 再 `set()`，在多进程/多服务器下仍存在 TOCTOU 竞态窗口；如需真正的原子互斥，请使用支持 SETNX 的缓存驱动（如 Redis）。
+
+### 仅在一台服务器运行 `onOneServer`
+
+分布式部署时，让任务在多台机器中只执行一次：
+
+```php
+$this->hourly()->onOneServer();
+```
+
+机制说明：以「任务名 + 当前时间 HHMM」为键写入缓存，写入成功的那台服务器执行，其余机器通过 `TaskSkipped` 事件跳过。
+
+### 条件执行 `when` / `skip`
+
+根据运行时条件动态决定是否执行：
+
+```php
+$this->hourly()
+     ->when(function () {
+         return config('app.feature_enabled');
+     })
+     ->skip(function () {
+         return date('Y-m-d') === '2026-01-01';
+     });
+```
+
+---
+
+## 事件系统
+
+任务运行过程中会触发以下事件，可在应用中通过 `Event::listen` 或服务绑定订阅：
+
+| 事件类 | 说明 | 可用属性 |
+| --- | --- | --- |
+| `yunwuxin\cron\event\TaskProcessed` | 任务成功执行后 | `$event->task`（任务实例）、`$event->getName()`（任务类名） |
+| `yunwuxin\cron\event\TaskSkipped` | 任务被跳过时（单服务器 / 重叠执行） | `$event->task`、`$event->reason`（`single_server` 或 `overlapping`） |
+| `yunwuxin\cron\event\TaskFailed` | 任务执行抛出异常时 | `$event->task`、`$event->exception` |
+
+示例：
+
+```php
+// 在应用的 Event 服务中订阅
+Event::listen(\yunwuxin\cron\event\TaskFailed::class, function ($event) {
+    // 记录日志 / 发送告警等
+    logger('cron')->error('Task failed: ' . $event->getName(), [
+        'exception' => $event->exception->getMessage(),
+    ]);
+});
+```
+
+> `cron:run` 命令内部已默认订阅这三类事件，会在控制台输出相应提示并通过框架的 `Handle` 上报异常。
+
+---
+
+## 命令速查
+
+| 命令 | 说明 |
+| --- | --- |
+| `php think cron:run` | 单次扫描并执行所有到期任务 |
+| `php think cron:schedule` | 常驻进程，每分钟调用一次 `cron:run`（Ctrl+C 停止） |
