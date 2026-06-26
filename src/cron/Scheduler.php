@@ -58,17 +58,18 @@ class Scheduler
     }
 
     /**
-     * @param $task Task
+     * @param Task $task
      * @return bool
      */
-    protected function serverShouldRun($task)
+    protected function serverShouldRun($task): bool
     {
         $key = $task->mutexName() . $this->startedAt->format('Hi');
+
         if ($this->cache->has($key)) {
             return false;
         }
-        $this->cache->set($key, true, 60);
-        return true;
+
+        return $this->cache->set($key, true, 120);
     }
 
     /**
