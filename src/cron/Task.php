@@ -25,8 +25,8 @@ abstract class Task
     /** @var int 互斥锁过期秒数(重叠执行检查用,避免锁残留导致任务永不执行) */
     public int $expiresAt = 1440;
 
-    /** @var bool 分布式部署 是否仅在一台服务器上运行 */
-    public bool $onOneServer = false;
+    /** @var bool|null 分布式部署：null=未设置（继承全局配置）；true/false=显式覆盖 */
+    public ?bool $onOneServer = null;
 
     /** @var list<callable(): bool> */
     protected array $filters = [];
@@ -185,6 +185,16 @@ abstract class Task
     public function onOneServer(): static
     {
         $this->onOneServer = true;
+
+        return $this;
+    }
+
+    /**
+     * @return $this
+     */
+    public function withoutOnOneServer(): static
+    {
+        $this->onOneServer = false;
 
         return $this;
     }

@@ -59,16 +59,20 @@ class MemoryCache extends Cache
  */
 class TestConfig
 {
-    public function __construct(private array $tasks, private ?string $store = null)
-    {
+    public function __construct(
+        private array $tasks,
+        private ?string $store = null,
+        private bool $onOneServer = false
+    ) {
     }
 
     public function get(string $key, mixed $default = null): mixed
     {
         return match ($key) {
-            'cron.tasks' => $this->tasks,
-            'cron.store' => $this->store,
-            default      => $default,
+            'cron.tasks'       => $this->tasks,
+            'cron.store'       => $this->store,
+            'cron.onOneServer' => $this->onOneServer,
+            default            => $default,
         };
     }
 }
@@ -203,7 +207,7 @@ class FailingTask extends Task
 class SingleServerTask extends Task
 {
     public string $expression = '* * * * *';
-    public bool $onOneServer = true;
+    public ?bool $onOneServer = true;
     public static bool $executeCalled = false;
 
     protected function configure(): void
@@ -218,6 +222,55 @@ class SingleServerTask extends Task
     public function mutexName(): string
     {
         return 'single-server-mutex';
+    }
+}
+
+/**
+ * 通过 configure() 调用 ->onOneServer() 的任务（验证方法链式调用方式同样生效）
+ */
+class OptInSingleServerTask extends Task
+{
+    public string $expression = '* * * * *';
+    public static bool $executeCalled = false;
+
+    protected function configure(): void
+    {
+        $this->onOneServer();
+    }
+
+    protected function execute(): void
+    {
+        self::$executeCalled = true;
+    }
+
+    public function mutexName(): string
+    {
+        return 'opt-in-single-server-mutex';
+    }
+}
+
+/**
+ * 通过 configure() 调用 ->withoutOnOneServer() 的任务：
+ * 即使全局 onOneServer=true，它也应该在每台服务器上正常运行
+ */
+class OptOutSingleServerTask extends Task
+{
+    public string $expression = '* * * * *';
+    public static bool $executeCalled = false;
+
+    protected function configure(): void
+    {
+        $this->withoutOnOneServer();
+    }
+
+    protected function execute(): void
+    {
+        self::$executeCalled = true;
+    }
+
+    public function mutexName(): string
+    {
+        return 'opt-out-single-server-mutex';
     }
 }
 
@@ -292,6 +345,8 @@ final class SchedulerTest extends TestCase
         NeverDueTask::$executeCalled        = false;
         FilteredTask::$executeCalled        = false;
         SingleServerTask::$executeCalled    = false;
+        OptInSingleServerTask::$executeCalled  = false;
+        OptOutSingleServerTask::$executeCalled = false;
         BetweenTask::$executeCalled         = false;
         BetweenOvernightTask::$executeCalled = false;
         UnlessBetweenTask::$executeCalled   = false;
@@ -312,11 +367,16 @@ final class SchedulerTest extends TestCase
      * @param array  $taskClasses 任务类名数组
      * @param MemoryCache $sharedCache 共享的内存 cache
      * @param TestEvent|null $event 事件监听器
+     * @param bool $globalOnOneServer 全局 onOneServer 默认值
      */
-    private function makeApp(array $taskClasses, MemoryCache $sharedCache, ?TestEvent $event = null): App
-    {
+    private function makeApp(
+        array $taskClasses,
+        MemoryCache $sharedCache,
+        ?TestEvent $event = null,
+        bool $globalOnOneServer = false
+    ): App {
         $app = new App();
-        $app->instance('config', new TestConfig($taskClasses));
+        $app->instance('config', new TestConfig($taskClasses, null, $globalOnOneServer));
         $app->instance('cache', $sharedCache);
         $app->instance(Event::class, $event ?? new TestEvent());
 
@@ -380,6 +440,95 @@ final class SchedulerTest extends TestCase
         (new Scheduler($app))->run();
 
         self::assertFalse(SingleServerTask::$executeCalled);
+        self::assertContains(TaskSkipped::class, $event->triggered);
+    }
+
+    // === 全局 onOneServer 配置 + 任务级显式覆盖 ===
+
+    public function test_global_on_one_server_makes_ordinary_task_run_single_server(): void
+    {
+        // 全局 onOneServer=true，任务本身未设置任何标志（$onOneServer=null）
+        // 应该继承全局配置，走单服务器流程（即会检查互斥锁）
+        $event = new TestEvent();
+        $app   = $this->makeApp([AlwaysDueTask::class], new MemoryCache(), $event, true);
+
+        (new Scheduler($app))->run();
+
+        // 本服务器"抢锁"成功 → 任务被执行
+        self::assertTrue(AlwaysDueTask::$executeCalled);
+        self::assertContains(TaskProcessed::class, $event->triggered);
+    }
+
+    public function test_global_on_one_server_skips_if_mutex_exists(): void
+    {
+        // 全局 onOneServer=true，任务未设置标志 → 继承全局配置，走单服务器流程
+        // 若 cache 中已有锁（模拟其他服务器已运行），本服务器应该跳过
+        $sharedCache = new MemoryCache();
+
+        // AlwaysDueTask 的 mutexName 由 sha1(static::class) 生成，这里直接写入对应 key
+        $mutexKey = 'task-' . sha1(AlwaysDueTask::class) . date('Hi');
+        $sharedCache->data[$mutexKey] = true;
+
+        $event = new TestEvent();
+        $app   = $this->makeApp([AlwaysDueTask::class], $sharedCache, $event, true);
+
+        (new Scheduler($app))->run();
+
+        self::assertFalse(AlwaysDueTask::$executeCalled);
+        self::assertContains(TaskSkipped::class, $event->triggered);
+    }
+
+    public function test_task_without_on_one_server_overrides_global_true(): void
+    {
+        // 全局 onOneServer=true，但任务显式调用 ->withoutOnOneServer()（$onOneServer=false）
+        // 任务级优先，应该走"普通执行"流程（不做互斥锁检查，直接执行）
+        $sharedCache = new MemoryCache();
+
+        // 即使预先写入一个互斥锁，普通执行流程也不会检查它
+        $mutexKey = 'opt-out-single-server-mutex' . date('Hi');
+        $sharedCache->data[$mutexKey] = true;
+
+        $event = new TestEvent();
+        $app   = $this->makeApp([OptOutSingleServerTask::class], $sharedCache, $event, true);
+
+        (new Scheduler($app))->run();
+
+        self::assertTrue(OptOutSingleServerTask::$executeCalled,
+            'Task with withoutOnOneServer() should run even when global onOneServer is true and mutex exists');
+        self::assertContains(TaskProcessed::class, $event->triggered);
+        self::assertNotContains(TaskSkipped::class, $event->triggered,
+            'Should NOT trigger TaskSkipped because it bypasses single-server flow');
+    }
+
+    public function test_task_on_one_server_overrides_global_false(): void
+    {
+        // 全局 onOneServer=false，但任务显式调用 ->onOneServer()（$onOneServer=true）
+        // 任务级优先，应该走单服务器流程
+        $event = new TestEvent();
+        $app   = $this->makeApp([OptInSingleServerTask::class], new MemoryCache(), $event, false);
+
+        (new Scheduler($app))->run();
+
+        self::assertTrue(OptInSingleServerTask::$executeCalled);
+        self::assertContains(TaskProcessed::class, $event->triggered);
+    }
+
+    public function test_task_on_one_server_respects_mutex_when_global_false(): void
+    {
+        // 全局 onOneServer=false，任务显式调用 ->onOneServer()
+        // 如果存在互斥锁（其他服务器已运行），应当跳过
+        $sharedCache = new MemoryCache();
+
+        $mutexKey = 'opt-in-single-server-mutex' . date('Hi');
+        $sharedCache->data[$mutexKey] = true;
+
+        $event = new TestEvent();
+        $app   = $this->makeApp([OptInSingleServerTask::class], $sharedCache, $event, false);
+
+        (new Scheduler($app))->run();
+
+        self::assertFalse(OptInSingleServerTask::$executeCalled,
+            'Task with onOneServer() should be skipped when mutex exists, even when global onOneServer is false');
         self::assertContains(TaskSkipped::class, $event->triggered);
     }
 

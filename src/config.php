@@ -1,5 +1,7 @@
 <?php
 
 return [
-    'tasks' => []
+    'tasks'       => [],
+    'store'       => null,
+    'onOneServer' => false,
 ];
