@@ -11,7 +11,8 @@
   "require": {
     "symfony/process": "^7.0",
     "nesbot/carbon": "^3.0",
-    "dragonmantank/cron-expression": "^3.0"
+    "dragonmantank/cron-expression": "^3.0",
+    "ext-pcntl": "*"
   },
   "autoload": {
     "psr-4": {
