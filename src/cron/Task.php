@@ -63,12 +63,9 @@ abstract class Task
     }
 
     /**
-     * 执行任务
+     * 执行任务（子类必须实现此方法）
      */
-    protected function execute()
-    {
-        $this->app->invoke([$this, 'handle'], [], true);
-    }
+    abstract protected function execute();
 
     /**
      * @return bool 任务是否真正执行（被 withoutOverlapping 跳过时返回 false）
@@ -82,7 +79,7 @@ abstract class Task
         }
 
         try {
-            $this->execute();
+            $this->app->invoke([$this, 'execute'], [], true);
         } finally {
             if ($this->withoutOverlapping) {
                 $this->removeMutex();
