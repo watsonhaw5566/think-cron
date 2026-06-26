@@ -14,14 +14,14 @@ composer require watsonhaw/think-cron
 
 ### 创建任务类
 
-继承 `yunwuxin\cron\Task`，在 `configure()` 中设置执行周期，在 `execute()` 中实现业务逻辑：
+继承 `watsonhaw\cron\Task`，在 `configure()` 中设置执行周期，在 `execute()` 中实现业务逻辑：
 
 ```php
 <?php
 
 namespace app\task;
 
-use yunwuxin\cron\Task;
+use watsonhaw\cron\Task;
 
 class DemoTask extends Task
 {
@@ -182,15 +182,15 @@ $this->hourly()
 
 | 事件类 | 说明 | 可用属性 |
 | --- | --- | --- |
-| `yunwuxin\cron\event\TaskProcessed` | 任务成功执行后 | `$event->task`（任务实例）、`$event->getName()`（任务类名） |
-| `yunwuxin\cron\event\TaskSkipped` | 任务被跳过时（单服务器 / 重叠执行） | `$event->task`、`$event->reason`（`single_server` 或 `overlapping`） |
-| `yunwuxin\cron\event\TaskFailed` | 任务执行抛出异常时 | `$event->task`、`$event->exception` |
+| `watsonhaw\cron\event\TaskProcessed` | 任务成功执行后 | `$event->task`（任务实例）、`$event->getName()`（任务类名） |
+| `watsonhaw\cron\event\TaskSkipped` | 任务被跳过时（单服务器 / 重叠执行） | `$event->task`、`$event->reason`（`single_server` 或 `overlapping`） |
+| `watsonhaw\cron\event\TaskFailed` | 任务执行抛出异常时 | `$event->task`、`$event->exception` |
 
 示例：
 
 ```php
 // 在应用的 Event 服务中订阅
-Event::listen(\yunwuxin\cron\event\TaskFailed::class, function ($event) {
+Event::listen(\watsonhaw\cron\event\TaskFailed::class, function ($event) {
     // 记录日志 / 发送告警等
     logger('cron')->error('Task failed: ' . $event->getName(), [
         'exception' => $event->exception->getMessage(),
