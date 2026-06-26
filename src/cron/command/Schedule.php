@@ -21,19 +21,7 @@ class Schedule extends Command
 
         $command = '"' . PHP_BINARY . '" think cron:run';
 
-        $shouldStop = false;
-
-        if (function_exists('pcntl_signal')) {
-            pcntl_async_signals(true);
-            pcntl_signal(SIGINT, function () use (&$shouldStop) {
-                $shouldStop = true;
-            });
-            pcntl_signal(SIGTERM, function () use (&$shouldStop) {
-                $shouldStop = true;
-            });
-        }
-
-        while (!$shouldStop) {
+        while (true) {
             $process = Process::fromShellCommandline($command);
             $exitCode = $process->run();
 
@@ -43,16 +31,7 @@ class Schedule extends Command
                 );
             }
 
-            for ($i = 0; $i < 60; $i++) {
-                if ($shouldStop) {
-                    break;
-                }
-                sleep(1);
-            }
+            sleep(60);
         }
-
-        $output->writeln('<info>Cron schedule stopped.</info>');
-
-        return 0;
     }
 }
