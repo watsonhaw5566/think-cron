@@ -3,7 +3,7 @@
 namespace yunwuxin\cron;
 
 use Carbon\Carbon;
-use Exception;
+use Throwable;
 use think\App;
 use think\cache\Driver;
 use yunwuxin\cron\event\TaskFailed;
@@ -93,7 +93,7 @@ class Scheduler
     {
         try {
             $task->run();
-        } catch (Exception $e) {
+        } catch (Throwable $e) {
             $this->app->event->trigger(new TaskFailed($task, $e));
         }
 
