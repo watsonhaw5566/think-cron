@@ -21,11 +21,15 @@ class Scheduler
 
     protected Cache $cache;
 
+    /** @var bool 全局默认：所有任务是否都在单台服务器运行（任务级显式设置优先） */
+    protected bool $globalOnOneServer;
+
     public function __construct(App $app)
     {
-        $this->app   = $app;
-        $this->tasks = $app->config->get('cron.tasks', []);
-        $this->cache = $app->cache->store($app->config->get('cron.store', null));
+        $this->app              = $app;
+        $this->tasks            = $app->config->get('cron.tasks', []);
+        $this->cache            = $app->cache->store($app->config->get('cron.store', null));
+        $this->globalOnOneServer = (bool) $app->config->get('cron.onOneServer', false);
     }
 
     /**
@@ -68,7 +72,9 @@ class Scheduler
                     continue;
                 }
 
-                $ran = $task->onOneServer
+                $shouldOnOneServer = $task->onOneServer ?? $this->globalOnOneServer;
+
+                $ran = $shouldOnOneServer
                     ? $this->runSingleServerTask($task)
                     : $this->runTask($task);
 

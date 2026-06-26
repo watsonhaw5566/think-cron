@@ -58,6 +58,12 @@ return [
     // （可选）使用的缓存驱动，用于互斥锁/单服务器判断；留空使用默认缓存
     // 推荐使用 Redis 等支持 SETNX 的驱动以获得真正的原子互斥
     'store' => null,
+
+    // （可选）全局默认：所有任务是否仅在一台服务器上运行（默认 false）
+    // 设为 true 后，所有未显式覆盖的任务都会走单服务器流程，
+    // 避免在每个任务的 configure() 中重复调用 ->onOneServer()
+    // 任务级的 ->onOneServer() / ->withoutOnOneServer() 始终优先于此配置
+    'onOneServer' => false,
 ];
 ```
 
@@ -176,13 +182,37 @@ $this->hourly()->withoutOverlapping(60);
 
 ### 仅在一台服务器运行 `onOneServer`
 
-分布式部署时，让任务在多台机器中只执行一次：
+分布式部署时，让任务在多台机器中只执行一次。支持**全局默认 + 任务级显式覆盖**两种方式：
+
+**方式一：在 `config/cron.php` 中全局开启（推荐）**
 
 ```php
-$this->hourly()->onOneServer();
+'onOneServer' => true,  // 所有任务默认仅在一台服务器运行
 ```
 
-机制说明：以「任务名 + 当前时间 HHMM」为键写入缓存，写入成功的那台服务器执行，其余机器通过 `TaskSkipped` 事件跳过。
+开启后无需在每个任务中重复调用 `->onOneServer()`。
+
+**方式二：在任务的 `configure()` 中按任务控制**
+
+```php
+// 强制此任务在单服务器执行（即使全局 onOneServer = false）
+$this->hourly()->onOneServer();
+
+// 强制此任务在所有服务器并行执行（即使全局 onOneServer = true）
+// 适用于：清理本机临时目录、收集本机监控数据等需要每台机器都执行的场景
+$this->hourly()->withoutOnOneServer();
+```
+
+**优先级规则**：任务级设置始终优先于全局配置：
+
+| 任务 `$onOneServer` | 全局 `onOneServer` | 最终行为 |
+|--------------------|-------------------|---------|
+| `null`（未设置）   | `false`           | 多服务器并行（默认） |
+| `null`（未设置）   | `true`            | 单服务器执行 |
+| `true`（`->onOneServer()`） | 任意 | **单服务器执行**（任务级优先） |
+| `false`（`->withoutOnOneServer()`） | 任意 | **多服务器并行**（任务级优先） |
+
+**机制说明**：以「任务名 + 当前时间 HHMM」为键写入缓存，写入成功的那台服务器执行，其余机器通过 `TaskSkipped` 事件跳过。
 
 ### 条件执行 `when` / `skip`
 

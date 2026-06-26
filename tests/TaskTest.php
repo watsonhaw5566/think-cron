@@ -203,6 +203,27 @@ final class TaskTest extends TestCase
         self::assertSame(60, $task->expiresAt);
     }
 
+    public function test_on_one_server_default_is_null(): void
+    {
+        $task = new class($this->makeApp(), new class extends Cache {
+            public function __construct() {}
+            public function has($key): bool { return false; }
+            public function get($key, $default = null): mixed { return $default; }
+            public function set($key, $value, $ttl = null): bool { return true; }
+            public function delete($key): bool { return true; }
+        }) extends Task {
+            protected function configure(): void
+            {
+            }
+
+            protected function execute(): void
+            {
+            }
+        };
+
+        self::assertNull($task->onOneServer, 'Default onOneServer should be null (inherit global config)');
+    }
+
     public function test_on_one_server_toggles_flag(): void
     {
         $task = new class($this->makeApp(), new class extends Cache {
@@ -225,6 +246,30 @@ final class TaskTest extends TestCase
 
         self::assertSame($task, $result);
         self::assertTrue($task->onOneServer);
+    }
+
+    public function test_without_on_one_server_toggles_flag_to_false(): void
+    {
+        $task = new class($this->makeApp(), new class extends Cache {
+            public function __construct() {}
+            public function has($key): bool { return false; }
+            public function get($key, $default = null): mixed { return $default; }
+            public function set($key, $value, $ttl = null): bool { return true; }
+            public function delete($key): bool { return true; }
+        }) extends Task {
+            protected function configure(): void
+            {
+            }
+
+            protected function execute(): void
+            {
+            }
+        };
+
+        $result = $task->withoutOnOneServer();
+
+        self::assertSame($task, $result);
+        self::assertFalse($task->onOneServer);
     }
 
     public function test_run_invokes_execute_and_manages_mutex(): void
