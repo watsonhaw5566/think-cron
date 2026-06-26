@@ -12,12 +12,8 @@ use yunwuxin\cron\Scheduler;
 
 class Run extends Command
 {
-    /** @var Carbon */
-    protected $startedAt;
-
     protected function configure()
     {
-        $this->startedAt = Carbon::now();
         $this->setName('cron:run');
     }
 
