@@ -380,6 +380,11 @@ trait ManagesFrequencies
     {
         $segments = explode(' ', $this->expression);
 
+        // 填充至少 5 个字段，避免表达式格式异常时产生 Undefined offset Notice
+        for ($i = count($segments); $i < 5; $i++) {
+            $segments[$i] = '*';
+        }
+
         $segments[$position - 1] = $value;
 
         return $this->expression(implode(' ', $segments));
