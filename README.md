@@ -2,7 +2,7 @@
 
 ## 安装方法
 ```
-composer require yunwuxin/think-cron
+composer require watsonhaw/think-cron
 ```
 
 ## 使用方法
@@ -14,7 +14,7 @@ composer require yunwuxin/think-cron
 
 namespace app\task;
 
-use yunwuxin\cron\Task;
+use watsonhaw\cron\Task;
 
 class DemoTask extends Task
 {

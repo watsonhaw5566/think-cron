@@ -1,12 +1,12 @@
 <?php
 
-namespace yunwuxin\cron\tests;
+namespace watsonhaw\cron\tests;
 
 use Exception;
 use PHPUnit\Framework\TestCase;
 use think\App;
 use think\Cache;
-use yunwuxin\cron\Task;
+use watsonhaw\cron\Task;
 
 final class TaskTest extends TestCase
 {

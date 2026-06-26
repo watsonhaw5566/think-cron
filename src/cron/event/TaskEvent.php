@@ -1,8 +1,8 @@
 <?php
 
-namespace yunwuxin\cron\event;
+namespace watsonhaw\cron\event;
 
-use yunwuxin\cron\Task;
+use watsonhaw\cron\Task;
 
 abstract class TaskEvent
 {

@@ -1,14 +1,14 @@
 <?php
 
-namespace yunwuxin\cron;
+namespace watsonhaw\cron;
 
 use Carbon\Carbon;
 use Throwable;
 use think\App;
 use think\cache\Driver;
-use yunwuxin\cron\event\TaskFailed;
-use yunwuxin\cron\event\TaskProcessed;
-use yunwuxin\cron\event\TaskSkipped;
+use watsonhaw\cron\event\TaskFailed;
+use watsonhaw\cron\event\TaskProcessed;
+use watsonhaw\cron\event\TaskSkipped;
 
 class Scheduler
 {

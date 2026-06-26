@@ -1,6 +1,6 @@
 <?php
 
-namespace yunwuxin\cron\tests;
+namespace watsonhaw\cron\tests;
 
 use Carbon\Carbon;
 use Exception;
@@ -8,11 +8,11 @@ use PHPUnit\Framework\TestCase;
 use think\App;
 use think\Cache;
 use think\Event;
-use yunwuxin\cron\event\TaskFailed;
-use yunwuxin\cron\event\TaskProcessed;
-use yunwuxin\cron\event\TaskSkipped;
-use yunwuxin\cron\Scheduler;
-use yunwuxin\cron\Task;
+use watsonhaw\cron\event\TaskFailed;
+use watsonhaw\cron\event\TaskProcessed;
+use watsonhaw\cron\event\TaskSkipped;
+use watsonhaw\cron\Scheduler;
+use watsonhaw\cron\Task;
 
 /**
  * 内存 cache：所有 cache 操作都在内存数组中，便于测试共享状态

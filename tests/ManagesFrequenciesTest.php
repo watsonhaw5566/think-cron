@@ -1,9 +1,9 @@
 <?php
 
-namespace yunwuxin\cron\tests;
+namespace watsonhaw\cron\tests;
 
 use PHPUnit\Framework\TestCase;
-use yunwuxin\cron\ManagesFrequencies;
+use watsonhaw\cron\ManagesFrequencies;
 
 final class ManagesFrequenciesTest extends TestCase
 {

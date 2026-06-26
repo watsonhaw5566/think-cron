@@ -1,12 +1,12 @@
 <?php
 
-namespace yunwuxin\cron;
+namespace watsonhaw\cron;
 
 use Closure;
 use Cron\CronExpression;
 use think\App;
 use think\Cache;
-use yunwuxin\cron\event\TaskSkipped;
+use watsonhaw\cron\event\TaskSkipped;
 
 abstract class Task
 {

@@ -1,9 +1,9 @@
 <?php
 
-namespace yunwuxin\cron\event;
+namespace watsonhaw\cron\event;
 
 use Throwable;
-use yunwuxin\cron\Task;
+use watsonhaw\cron\Task;
 
 class TaskFailed extends TaskEvent
 {

@@ -1,6 +1,6 @@
 <?php
 
-namespace yunwuxin\cron;
+namespace watsonhaw\cron;
 
 use Carbon\Carbon;
 
