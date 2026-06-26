@@ -101,6 +101,7 @@ class AlwaysDueTask extends Task
 {
     public $expression = '* * * * *';
     public static bool $executeCalled = false;
+    public static int $executeCount = 0;
 
     protected function configure(): void
     {
@@ -109,6 +110,48 @@ class AlwaysDueTask extends Task
     protected function execute(): void
     {
         self::$executeCalled = true;
+        self::$executeCount++;
+    }
+}
+
+/**
+ * 第二个到期任务：与 AlwaysDueTask 类名不同、互斥锁不同，
+ * 用于验证 foreach 会遍历所有任务。
+ */
+class AlwaysDueTaskB extends Task
+{
+    public $expression = '* * * * *';
+    public static bool $executeCalled = false;
+    public static int $executeCount = 0;
+
+    protected function configure(): void
+    {
+    }
+
+    protected function execute(): void
+    {
+        self::$executeCalled = true;
+        self::$executeCount++;
+    }
+}
+
+/**
+ * 第三个到期任务：用于进一步验证"无论注册多少个任务都能被执行"。
+ */
+class AlwaysDueTaskC extends Task
+{
+    public $expression = '* * * * *';
+    public static bool $executeCalled = false;
+    public static int $executeCount = 0;
+
+    protected function configure(): void
+    {
+    }
+
+    protected function execute(): void
+    {
+        self::$executeCalled = true;
+        self::$executeCount++;
     }
 }
 
@@ -241,6 +284,11 @@ final class SchedulerTest extends TestCase
     {
         // 重置所有静态标志
         AlwaysDueTask::$executeCalled       = false;
+        AlwaysDueTask::$executeCount        = 0;
+        AlwaysDueTaskB::$executeCalled      = false;
+        AlwaysDueTaskB::$executeCount       = 0;
+        AlwaysDueTaskC::$executeCalled      = false;
+        AlwaysDueTaskC::$executeCount       = 0;
         NeverDueTask::$executeCalled        = false;
         FilteredTask::$executeCalled        = false;
         SingleServerTask::$executeCalled    = false;
@@ -458,5 +506,82 @@ final class SchedulerTest extends TestCase
 
         self::assertFalse(UnlessBetweenTask::$executeCalled);
         self::assertEmpty($event->triggered);
+    }
+
+    // === 多任务并行执行：验证 Scheduler 会依次执行所有已注册的任务 ===
+
+    public function test_it_runs_all_registered_tasks_in_one_scheduler_run(): void
+    {
+        // 注册 3 个不同的任务类，都应该在一次 run() 中被执行
+        $event = new TestEvent();
+        $app   = $this->makeApp(
+            [AlwaysDueTask::class, AlwaysDueTaskB::class, AlwaysDueTaskC::class],
+            new MemoryCache(),
+            $event
+        );
+
+        (new Scheduler($app))->run();
+
+        self::assertTrue(AlwaysDueTask::$executeCalled, 'Task A should have been executed');
+        self::assertTrue(AlwaysDueTaskB::$executeCalled, 'Task B should have been executed');
+        self::assertTrue(AlwaysDueTaskC::$executeCalled, 'Task C should have been executed');
+
+        // 每个任务都只被执行一次（不会多也不会少）
+        self::assertSame(1, AlwaysDueTask::$executeCount);
+        self::assertSame(1, AlwaysDueTaskB::$executeCount);
+        self::assertSame(1, AlwaysDueTaskC::$executeCount);
+
+        // TaskProcessed 事件也应当触发 3 次
+        $processedCount = array_count_values($event->triggered)[TaskProcessed::class] ?? 0;
+        self::assertSame(3, $processedCount, 'Three TaskProcessed events should have been fired');
+    }
+
+    public function test_mixed_tasks_only_execute_due_and_unfiltered(): void
+    {
+        // 混合场景：注册 3 个到期任务 + 1 个不到期 + 1 个被过滤
+        // 只有 3 个到期且未被过滤的任务应当被执行
+        $event = new TestEvent();
+        $app   = $this->makeApp(
+            [
+                AlwaysDueTask::class,
+                NeverDueTask::class,
+                AlwaysDueTaskB::class,
+                FilteredTask::class,
+                AlwaysDueTaskC::class,
+            ],
+            new MemoryCache(),
+            $event
+        );
+
+        (new Scheduler($app))->run();
+
+        self::assertTrue(AlwaysDueTask::$executeCalled);
+        self::assertTrue(AlwaysDueTaskB::$executeCalled);
+        self::assertTrue(AlwaysDueTaskC::$executeCalled);
+        self::assertFalse(NeverDueTask::$executeCalled, 'Never due task should NOT run');
+        self::assertFalse(FilteredTask::$executeCalled, 'Filtered out task should NOT run');
+
+        $processedCount = array_count_values($event->triggered)[TaskProcessed::class] ?? 0;
+        self::assertSame(3, $processedCount);
+    }
+
+    public function test_a_failing_task_does_not_break_other_tasks(): void
+    {
+        // 一个任务抛出异常不应中断 Scheduler 的 foreach：它之后的任务仍要被执行
+        $event = new TestEvent();
+        $app   = $this->makeApp(
+            [AlwaysDueTask::class, FailingTask::class, AlwaysDueTaskB::class],
+            new MemoryCache(),
+            $event
+        );
+
+        (new Scheduler($app))->run();
+
+        self::assertTrue(AlwaysDueTask::$executeCalled, 'Task before failing task should have run');
+        self::assertTrue(AlwaysDueTaskB::$executeCalled, 'Task after failing task should still have run');
+
+        self::assertContains(TaskFailed::class, $event->triggered);
+        $processedCount = array_count_values($event->triggered)[TaskProcessed::class] ?? 0;
+        self::assertSame(2, $processedCount, 'Two tasks should have been processed successfully');
     }
 }
