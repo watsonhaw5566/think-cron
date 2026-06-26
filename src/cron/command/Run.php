@@ -12,12 +12,12 @@ use watsonhaw\cron\Scheduler;
 
 class Run extends Command
 {
-    protected function configure()
+    protected function configure(): void
     {
         $this->setName('cron:run');
     }
 
-    public function handle(Scheduler $scheduler)
+    public function handle(Scheduler $scheduler): void
     {
         $this->listenForEvents();
 
@@ -27,7 +27,7 @@ class Run extends Command
     /**
      * 注册事件
      */
-    protected function listenForEvents()
+    protected function listenForEvents(): void
     {
         $this->app->event->listen(TaskProcessed::class, function (TaskProcessed $event) {
             $this->output->writeln("Task {$event->getName()} run at " . Carbon::now());

@@ -10,12 +10,12 @@ use think\console\Output;
 class Schedule extends Command
 {
 
-    protected function configure()
+    protected function configure(): void
     {
         $this->setName('cron:schedule');
     }
 
-    protected function execute(Input $input, Output $output)
+    protected function execute(Input $input, Output $output): int
     {
         $output->writeln('<info>Cron schedule started.</info> Press Ctrl+C to stop.');
 

@@ -5,23 +5,21 @@ namespace watsonhaw\cron;
 use Carbon\Carbon;
 use Throwable;
 use think\App;
-use think\cache\Driver;
+use think\Cache;
 use watsonhaw\cron\event\TaskFailed;
 use watsonhaw\cron\event\TaskProcessed;
 use watsonhaw\cron\event\TaskSkipped;
 
 class Scheduler
 {
-    /** @var App */
-    protected $app;
+    protected App $app;
 
-    /** @var Carbon */
-    protected $startedAt;
+    protected Carbon $startedAt;
 
-    protected $tasks = [];
+    /** @var list<class-string<Task>> */
+    protected array $tasks = [];
 
-    /** @var Driver */
-    protected $cache;
+    protected Cache $cache;
 
     public function __construct(App $app)
     {
@@ -47,7 +45,7 @@ class Scheduler
         return $tasks;
     }
 
-    public function run()
+    public function run(): void
     {
         $this->startedAt = Carbon::now();
         foreach ($this->tasks as $taskClass) {
@@ -63,7 +61,7 @@ class Scheduler
                     }
 
                     if (!$task->filtersPass()) {
-                        continue;
+                            continue;
                     }
                 } catch (Throwable $e) {
                     $this->app->event->trigger(new TaskFailed($task, $e));
@@ -81,11 +79,7 @@ class Scheduler
         }
     }
 
-    /**
-     * @param Task $task
-     * @return bool
-     */
-    protected function serverShouldRun($task): bool
+    protected function serverShouldRun(Task $task): bool
     {
         $key = $task->mutexName() . $this->startedAt->format('Hi');
 
@@ -97,7 +91,6 @@ class Scheduler
     }
 
     /**
-     * @param Task $task
      * @return bool 任务是否实际执行（false 表示被跳过）
      */
     protected function runSingleServerTask(Task $task): bool
@@ -111,7 +104,6 @@ class Scheduler
     }
 
     /**
-     * @param Task $task
      * @return bool 任务是否成功执行（异常或 withoutOverlapping 跳过时返回 false）
      */
     protected function runTask(Task $task): bool

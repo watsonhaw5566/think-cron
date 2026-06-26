@@ -9,7 +9,7 @@ use watsonhaw\cron\command\Show;
 class Service extends \think\Service
 {
 
-    public function boot()
+    public function boot(): void
     {
         $this->commands([
             Run::class,

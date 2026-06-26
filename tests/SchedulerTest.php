@@ -99,7 +99,7 @@ class TestEvent
 
 class AlwaysDueTask extends Task
 {
-    public $expression = '* * * * *';
+    public string $expression = '* * * * *';
     public static bool $executeCalled = false;
     public static int $executeCount = 0;
 
@@ -120,7 +120,7 @@ class AlwaysDueTask extends Task
  */
 class AlwaysDueTaskB extends Task
 {
-    public $expression = '* * * * *';
+    public string $expression = '* * * * *';
     public static bool $executeCalled = false;
     public static int $executeCount = 0;
 
@@ -140,7 +140,7 @@ class AlwaysDueTaskB extends Task
  */
 class AlwaysDueTaskC extends Task
 {
-    public $expression = '* * * * *';
+    public string $expression = '* * * * *';
     public static bool $executeCalled = false;
     public static int $executeCount = 0;
 
@@ -157,7 +157,7 @@ class AlwaysDueTaskC extends Task
 
 class NeverDueTask extends Task
 {
-    public $expression = '0 0 1 1 *'; // 1月1日 00:00，永远不会到期
+    public string $expression = '0 0 1 1 *'; // 1月1日 00:00，永远不会到期
     public static bool $executeCalled = false;
 
     protected function configure(): void
@@ -172,7 +172,7 @@ class NeverDueTask extends Task
 
 class FilteredTask extends Task
 {
-    public $expression = '* * * * *';
+    public string $expression = '* * * * *';
     public static bool $executeCalled = false;
 
     protected function configure(): void
@@ -188,7 +188,7 @@ class FilteredTask extends Task
 
 class FailingTask extends Task
 {
-    public $expression = '* * * * *';
+    public string $expression = '* * * * *';
 
     protected function configure(): void
     {
@@ -202,8 +202,8 @@ class FailingTask extends Task
 
 class SingleServerTask extends Task
 {
-    public $expression = '* * * * *';
-    public $onOneServer = true;
+    public string $expression = '* * * * *';
+    public bool $onOneServer = true;
     public static bool $executeCalled = false;
 
     protected function configure(): void
@@ -226,7 +226,7 @@ class SingleServerTask extends Task
  */
 class BetweenTask extends Task
 {
-    public $expression = '* * * * *';
+    public string $expression = '* * * * *';
     public static bool $executeCalled = false;
 
     protected function configure(): void
@@ -245,7 +245,7 @@ class BetweenTask extends Task
  */
 class BetweenOvernightTask extends Task
 {
-    public $expression = '* * * * *';
+    public string $expression = '* * * * *';
     public static bool $executeCalled = false;
 
     protected function configure(): void
@@ -264,7 +264,7 @@ class BetweenOvernightTask extends Task
  */
 class UnlessBetweenTask extends Task
 {
-    public $expression = '* * * * *';
+    public string $expression = '* * * * *';
     public static bool $executeCalled = false;
 
     protected function configure(): void

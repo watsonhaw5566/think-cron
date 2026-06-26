@@ -13,12 +13,12 @@ use watsonhaw\cron\Task;
 
 class Show extends Command
 {
-    protected function configure()
+    protected function configure(): void
     {
         $this->setName('cron:show');
     }
 
-    protected function execute(Input $input, Output $output)
+    protected function execute(Input $input, Output $output): int
     {
         $scheduler = $this->app->make(Scheduler::class);
         $tasks     = $scheduler->getTasks();
