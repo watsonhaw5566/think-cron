@@ -380,6 +380,11 @@ trait ManagesFrequencies
     {
         $segments = explode(' ', $this->expression);
 
+        // cron 表达式只有 5 个字段，position 必须在 1-5 之间
+        if ($position < 1 || $position > 5) {
+            return $this;
+        }
+
         // 填充至少 5 个字段，避免表达式格式异常时产生 Undefined offset Notice
         for ($i = count($segments); $i < 5; $i++) {
             $segments[$i] = '*';
