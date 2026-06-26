@@ -32,7 +32,7 @@ final class TaskTest extends TestCase
             public function set($key, $value, $ttl = null): bool { return true; }
             public function delete($key): bool { return true; }
         }) extends Task {
-            public $expression = '* * * * *';
+            public string $expression = '* * * * *';
 
             protected function configure(): void
             {
@@ -55,7 +55,7 @@ final class TaskTest extends TestCase
             public function set($key, $value, $ttl = null): bool { return true; }
             public function delete($key): bool { return true; }
         }) extends Task {
-            public $expression = '0 0 1 1 *';
+            public string $expression = '0 0 1 1 *';
 
             protected function configure(): void
             {
@@ -240,7 +240,7 @@ final class TaskTest extends TestCase
         };
 
         $task = new class($this->makeApp(), $cache) extends Task {
-            public $withoutOverlapping = true;
+            public bool $withoutOverlapping = true;
             public bool $executeCalled = false;
 
             protected function configure(): void
@@ -269,7 +269,7 @@ final class TaskTest extends TestCase
         };
 
         $task = new class($this->makeApp(), $cache) extends Task {
-            public $withoutOverlapping = true;
+            public bool $withoutOverlapping = true;
             public bool $executeCalled = false;
 
             protected function configure(): void

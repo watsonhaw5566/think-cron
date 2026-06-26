@@ -3,16 +3,16 @@
 namespace watsonhaw\cron;
 
 use Carbon\Carbon;
+use Closure;
 
 trait ManagesFrequencies
 {
     /**
      * 设置任务执行周期
      *
-     * @param string $expression
      * @return $this
      */
-    public function expression($expression)
+    public function expression(string $expression): static
     {
         $this->expression = $expression;
 
@@ -22,11 +22,9 @@ trait ManagesFrequencies
     /**
      * 设置区间时间
      *
-     * @param string $startTime
-     * @param string $endTime
      * @return $this
      */
-    public function between($startTime, $endTime)
+    public function between(string $startTime, string $endTime): static
     {
         return $this->when($this->inTimeInterval($startTime, $endTime));
     }
@@ -34,16 +32,17 @@ trait ManagesFrequencies
     /**
      * 排除区间时间
      *
-     * @param string $startTime
-     * @param string $endTime
      * @return $this
      */
-    public function unlessBetween($startTime, $endTime)
+    public function unlessBetween(string $startTime, string $endTime): static
     {
         return $this->skip($this->inTimeInterval($startTime, $endTime));
     }
 
-    private function inTimeInterval($startTime, $endTime)
+    /**
+     * @return Closure(): bool
+     */
+    private function inTimeInterval(string $startTime, string $endTime): Closure
     {
         return function () use ($startTime, $endTime) {
             $now   = Carbon::now($this->timezone);
@@ -65,7 +64,7 @@ trait ManagesFrequencies
      *
      * @return $this
      */
-    public function hourly()
+    public function hourly(): static
     {
         return $this->spliceIntoPosition(1, 0);
     }
@@ -73,10 +72,9 @@ trait ManagesFrequencies
     /**
      * 按小时延期执行
      *
-     * @param int $offset
      * @return $this
      */
-    public function hourlyAt($offset)
+    public function hourlyAt(int $offset): static
     {
         return $this->spliceIntoPosition(1, $offset);
     }
@@ -86,7 +84,7 @@ trait ManagesFrequencies
      *
      * @return $this
      */
-    public function daily()
+    public function daily(): static
     {
         return $this->spliceIntoPosition(1, 0)
             ->spliceIntoPosition(2, 0);
@@ -95,10 +93,9 @@ trait ManagesFrequencies
     /**
      * 指定时间执行
      *
-     * @param string $time
      * @return $this
      */
-    public function at($time)
+    public function at(string $time): static
     {
         return $this->dailyAt($time);
     }
@@ -106,25 +103,22 @@ trait ManagesFrequencies
     /**
      * 指定时间执行
      *
-     * @param string $time
      * @return $this
      */
-    public function dailyAt($time)
+    public function dailyAt(string $time): static
     {
         $segments = explode(':', $time);
 
         return $this->spliceIntoPosition(2, (int) $segments[0])
-            ->spliceIntoPosition(1, count($segments) == 2 ? (int) $segments[1] : '0');
+            ->spliceIntoPosition(1, count($segments) === 2 ? (int) $segments[1] : 0);
     }
 
     /**
      * 每天执行两次
      *
-     * @param int $first
-     * @param int $second
      * @return $this
      */
-    public function twiceDaily($first = 1, $second = 13)
+    public function twiceDaily(int $first = 1, int $second = 13): static
     {
         $hours = $first . ',' . $second;
 
@@ -137,7 +131,7 @@ trait ManagesFrequencies
      *
      * @return $this
      */
-    public function weekdays()
+    public function weekdays(): static
     {
         return $this->spliceIntoPosition(5, '1-5');
     }
@@ -147,7 +141,7 @@ trait ManagesFrequencies
      *
      * @return $this
      */
-    public function weekends()
+    public function weekends(): static
     {
         return $this->spliceIntoPosition(5, '0,6');
     }
@@ -157,7 +151,7 @@ trait ManagesFrequencies
      *
      * @return $this
      */
-    public function mondays()
+    public function mondays(): static
     {
         return $this->days(1);
     }
@@ -167,7 +161,7 @@ trait ManagesFrequencies
      *
      * @return $this
      */
-    public function tuesdays()
+    public function tuesdays(): static
     {
         return $this->days(2);
     }
@@ -177,7 +171,7 @@ trait ManagesFrequencies
      *
      * @return $this
      */
-    public function wednesdays()
+    public function wednesdays(): static
     {
         return $this->days(3);
     }
@@ -187,7 +181,7 @@ trait ManagesFrequencies
      *
      * @return $this
      */
-    public function thursdays()
+    public function thursdays(): static
     {
         return $this->days(4);
     }
@@ -197,7 +191,7 @@ trait ManagesFrequencies
      *
      * @return $this
      */
-    public function fridays()
+    public function fridays(): static
     {
         return $this->days(5);
     }
@@ -207,7 +201,7 @@ trait ManagesFrequencies
      *
      * @return $this
      */
-    public function saturdays()
+    public function saturdays(): static
     {
         return $this->days(6);
     }
@@ -217,7 +211,7 @@ trait ManagesFrequencies
      *
      * @return $this
      */
-    public function sundays()
+    public function sundays(): static
     {
         return $this->days(0);
     }
@@ -227,7 +221,7 @@ trait ManagesFrequencies
      *
      * @return $this
      */
-    public function weekly()
+    public function weekly(): static
     {
         return $this->spliceIntoPosition(1, 0)
             ->spliceIntoPosition(2, 0)
@@ -237,11 +231,9 @@ trait ManagesFrequencies
     /**
      * 指定每周的时间执行
      *
-     * @param int $day
-     * @param string $time
      * @return $this
      */
-    public function weeklyOn($day, $time = '0:0')
+    public function weeklyOn(int $day, string $time = '0:0'): static
     {
         $this->dailyAt($time);
 
@@ -253,7 +245,7 @@ trait ManagesFrequencies
      *
      * @return $this
      */
-    public function monthly()
+    public function monthly(): static
     {
         return $this->spliceIntoPosition(1, 0)
             ->spliceIntoPosition(2, 0)
@@ -263,11 +255,9 @@ trait ManagesFrequencies
     /**
      * 指定每月的执行时间
      *
-     * @param int $day
-     * @param string $time
      * @return $this
      */
-    public function monthlyOn($day = 1, $time = '0:0')
+    public function monthlyOn(int $day = 1, string $time = '0:0'): static
     {
         $this->dailyAt($time);
 
@@ -277,11 +267,9 @@ trait ManagesFrequencies
     /**
      * 每月执行两次
      *
-     * @param int $first
-     * @param int $second
      * @return $this
      */
-    public function twiceMonthly($first = 1, $second = 16)
+    public function twiceMonthly(int $first = 1, int $second = 16): static
     {
         $days = $first . ',' . $second;
 
@@ -295,7 +283,7 @@ trait ManagesFrequencies
      *
      * @return $this
      */
-    public function quarterly()
+    public function quarterly(): static
     {
         return $this->spliceIntoPosition(1, 0)
             ->spliceIntoPosition(2, 0)
@@ -308,7 +296,7 @@ trait ManagesFrequencies
      *
      * @return $this
      */
-    public function yearly()
+    public function yearly(): static
     {
         return $this->spliceIntoPosition(1, 0)
             ->spliceIntoPosition(2, 0)
@@ -321,7 +309,7 @@ trait ManagesFrequencies
      *
      * @return $this
      */
-    public function everyMinute()
+    public function everyMinute(): static
     {
         return $this->spliceIntoPosition(1, '*');
     }
@@ -331,7 +319,7 @@ trait ManagesFrequencies
      *
      * @return $this
      */
-    public function everyFiveMinutes()
+    public function everyFiveMinutes(): static
     {
         return $this->spliceIntoPosition(1, '*/5');
     }
@@ -341,7 +329,7 @@ trait ManagesFrequencies
      *
      * @return $this
      */
-    public function everyTenMinutes()
+    public function everyTenMinutes(): static
     {
         return $this->spliceIntoPosition(1, '*/10');
     }
@@ -351,7 +339,7 @@ trait ManagesFrequencies
      *
      * @return $this
      */
-    public function everyThirtyMinutes()
+    public function everyThirtyMinutes(): static
     {
         return $this->spliceIntoPosition(1, '0,30');
     }
@@ -359,10 +347,11 @@ trait ManagesFrequencies
     /**
      * 按周设置天执行
      *
-     * @param array|mixed $days
+     * @param array<int, string|int>|string|int $days
+     * @param string|int ...$more
      * @return $this
      */
-    public function days($days)
+    public function days(array|string|int $days, array|string|int ...$more): static
     {
         $days = is_array($days) ? $days : func_get_args();
 
@@ -372,17 +361,20 @@ trait ManagesFrequencies
     /**
      * 设置时区
      *
-     * @param string $timezone
      * @return $this
      */
-    public function timezone($timezone)
+    public function timezone(string $timezone): static
     {
         $this->timezone = $timezone;
 
         return $this;
     }
 
-    protected function spliceIntoPosition($position, $value)
+    /**
+     * @param int|string $value
+     * @return $this
+     */
+    protected function spliceIntoPosition(int $position, int|string $value): static
     {
         $segments = explode(' ', $this->expression);
 
@@ -396,7 +388,7 @@ trait ManagesFrequencies
             $segments[$i] = '*';
         }
 
-        $segments[$position - 1] = $value;
+        $segments[$position - 1] = (string) $value;
 
         return $this->expression(implode(' ', $segments));
     }

@@ -14,28 +14,29 @@ abstract class Task
     use ManagesFrequencies;
 
     /** @var string|null 时区 */
-    public $timezone = null;
+    public ?string $timezone = null;
 
     /** @var string 任务周期 */
-    public $expression = '* * * * *';
+    public string $expression = '* * * * *';
 
     /** @var bool 任务是否可以重叠执行 */
-    public $withoutOverlapping = false;
+    public bool $withoutOverlapping = false;
 
     /** @var int 互斥锁过期秒数(重叠执行检查用,避免锁残留导致任务永不执行) */
-    public $expiresAt = 1440;
+    public int $expiresAt = 1440;
 
     /** @var bool 分布式部署 是否仅在一台服务器上运行 */
-    public $onOneServer = false;
+    public bool $onOneServer = false;
 
-    protected $filters = [];
-    protected $rejects = [];
+    /** @var list<callable(): bool> */
+    protected array $filters = [];
 
-    /** @var Cache */
-    protected $cache;
+    /** @var list<callable(): bool> */
+    protected array $rejects = [];
 
-    /** @var App */
-    protected $app;
+    protected Cache $cache;
+
+    protected App $app;
 
     public function __construct(App $app, Cache $cache)
     {
@@ -46,9 +47,8 @@ abstract class Task
 
     /**
      * 是否到期执行
-     * @return bool
      */
-    public function isDue()
+    public function isDue(): bool
     {
         $cronExpression = new CronExpression($this->expression);
 
@@ -58,14 +58,14 @@ abstract class Task
     /**
      * 配置任务
      */
-    protected function configure()
+    protected function configure(): void
     {
     }
 
     /**
      * 执行任务（子类必须实现此方法）
      */
-    abstract protected function execute();
+    abstract protected function execute(): void;
 
     /**
      * @return bool 任务是否真正执行（被 withoutOverlapping 跳过时返回 false）
@@ -91,9 +91,8 @@ abstract class Task
 
     /**
      * 过滤
-     * @return bool
      */
-    public function filtersPass()
+    public function filtersPass(): bool
     {
         foreach ($this->filters as $callback) {
             if (!call_user_func($callback)) {
@@ -113,7 +112,7 @@ abstract class Task
     /**
      * 任务标识
      */
-    public function mutexName()
+    public function mutexName(): string
     {
         return 'task-' . sha1(static::class);
     }
@@ -148,21 +147,30 @@ abstract class Task
         return (int) $mutex + $this->expiresAt > time();
     }
 
-    public function when(Closure $callback)
+    /**
+     * @return $this
+     */
+    public function when(Closure $callback): static
     {
         $this->filters[] = $callback;
 
         return $this;
     }
 
-    public function skip(Closure $callback)
+    /**
+     * @return $this
+     */
+    public function skip(Closure $callback): static
     {
         $this->rejects[] = $callback;
 
         return $this;
     }
 
-    public function withoutOverlapping($expiresAt = 1440)
+    /**
+     * @return $this
+     */
+    public function withoutOverlapping(int $expiresAt = 1440): static
     {
         $this->withoutOverlapping = true;
 
@@ -171,7 +179,10 @@ abstract class Task
         return $this;
     }
 
-    public function onOneServer()
+    /**
+     * @return $this
+     */
+    public function onOneServer(): static
     {
         $this->onOneServer = true;
 
