@@ -6,6 +6,7 @@ use Closure;
 use Cron\CronExpression;
 use think\App;
 use think\Cache;
+use yunwuxin\cron\event\TaskSkipped;
 
 abstract class Task
 {
@@ -21,7 +22,7 @@ abstract class Task
     /** @var bool 任务是否可以重叠执行 */
     public $withoutOverlapping = false;
 
-    /** @var int 最大执行时间(重叠执行检查用) */
+    /** @var int 互斥锁过期秒数(重叠执行检查用,避免锁残留导致任务永不执行) */
     public $expiresAt = 1440;
 
     /** @var bool 分布式部署 是否仅在一台服务器上运行 */
@@ -69,22 +70,26 @@ abstract class Task
         $this->app->invoke([$this, 'handle'], [], true);
     }
 
-    final public function run()
+    /**
+     * @return bool 任务是否真正执行（被 withoutOverlapping 跳过时返回 false）
+     */
+    final public function run(): bool
     {
         if ($this->withoutOverlapping &&
             !$this->createMutex()) {
-            return;
+            $this->app->event->trigger(new TaskSkipped($this, 'overlapping'));
+            return false;
         }
-
-        register_shutdown_function(function () {
-            $this->removeMutex();
-        });
 
         try {
             $this->execute();
         } finally {
-            $this->removeMutex();
+            if ($this->withoutOverlapping) {
+                $this->removeMutex();
+            }
         }
+
+        return true;
     }
 
     /**
@@ -116,25 +121,34 @@ abstract class Task
         return 'task-' . sha1(static::class);
     }
 
-    protected function removeMutex()
+    protected function removeMutex(): bool
     {
         return $this->cache->delete($this->mutexName());
     }
 
-    protected function createMutex()
+    /**
+     * 创建互斥锁，防止任务重叠执行。
+     * 必须先 has() 判断：ThinkPHP 的 set() 会无条件覆盖已有值，
+     * 没有 has() 的话互斥检查完全失效。
+     * 注意：多进程/多服务器下仍存在 TOCTOU 竞态窗口，如需真正的原子互斥，
+     * 请使用支持 SETNX 的缓存驱动（如 Redis）。
+     */
+    protected function createMutex(): bool
     {
         $name = $this->mutexName();
-
+        if ($this->cache->has($name)) {
+            return false;
+        }
         return $this->cache->set($name, time(), $this->expiresAt);
     }
 
-    protected function existsMutex()
+    protected function existsMutex(): bool
     {
-        if ($this->cache->has($this->mutexName())) {
-            $mutex = $this->cache->get($this->mutexName());
-            return $mutex + $this->expiresAt > time();
+        $mutex = $this->cache->get($this->mutexName());
+        if ($mutex === null) {
+            return false;
         }
-        return false;
+        return (int) $mutex + $this->expiresAt > time();
     }
 
     public function when(Closure $callback)
@@ -157,9 +171,7 @@ abstract class Task
 
         $this->expiresAt = $expiresAt;
 
-        return $this->skip(function () {
-            return $this->existsMutex();
-        });
+        return $this;
     }
 
     public function onOneServer()

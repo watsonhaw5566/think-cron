@@ -2,6 +2,7 @@
 
 namespace yunwuxin\cron\tests;
 
+use Carbon\Carbon;
 use Exception;
 use PHPUnit\Framework\TestCase;
 use think\App;
@@ -177,15 +178,84 @@ class SingleServerTask extends Task
     }
 }
 
+/**
+ * 时间区间任务：仅在 10:00-14:00 运行（不跨午夜）
+ */
+class BetweenTask extends Task
+{
+    public $expression = '* * * * *';
+    public static bool $handleCalled = false;
+
+    protected function configure(): void
+    {
+        $this->between('10:00', '14:00');
+    }
+
+    public function handle(): void
+    {
+        self::$handleCalled = true;
+    }
+}
+
+/**
+ * 跨午夜时间区间任务：仅在 23:00-01:00 运行
+ */
+class BetweenOvernightTask extends Task
+{
+    public $expression = '* * * * *';
+    public static bool $handleCalled = false;
+
+    protected function configure(): void
+    {
+        $this->between('23:00', '01:00');
+    }
+
+    public function handle(): void
+    {
+        self::$handleCalled = true;
+    }
+}
+
+/**
+ * 排除区间任务：除非处于 12:00-14:00，否则都应该运行
+ */
+class UnlessBetweenTask extends Task
+{
+    public $expression = '* * * * *';
+    public static bool $handleCalled = false;
+
+    protected function configure(): void
+    {
+        $this->unlessBetween('12:00', '14:00');
+    }
+
+    public function handle(): void
+    {
+        self::$handleCalled = true;
+    }
+}
+
 final class SchedulerTest extends TestCase
 {
     protected function setUp(): void
     {
         // 重置所有静态标志
-        AlwaysDueTask::$handleCalled  = false;
-        NeverDueTask::$handleCalled   = false;
-        FilteredTask::$handleCalled   = false;
-        SingleServerTask::$handleCalled = false;
+        AlwaysDueTask::$handleCalled       = false;
+        NeverDueTask::$handleCalled        = false;
+        FilteredTask::$handleCalled        = false;
+        SingleServerTask::$handleCalled    = false;
+        BetweenTask::$handleCalled         = false;
+        BetweenOvernightTask::$handleCalled = false;
+        UnlessBetweenTask::$handleCalled   = false;
+
+        // 清除 Carbon 的时间 mock（其他测试可能留下的状态）
+        Carbon::setTestNow(null);
+    }
+
+    protected function tearDown(): void
+    {
+        // 测试结束后务必清除 mock，避免影响其他测试
+        Carbon::setTestNow(null);
     }
 
     /**
@@ -263,5 +333,130 @@ final class SchedulerTest extends TestCase
 
         self::assertFalse(SingleServerTask::$handleCalled);
         self::assertContains(TaskSkipped::class, $event->triggered);
+    }
+
+    // === between/unlessBetween 时间区间过滤测试 ===
+
+    public function test_between_allows_task_within_interval(): void
+    {
+        Carbon::setTestNow('2024-01-01 12:00:00');
+
+        $event = new TestEvent();
+        $app   = $this->makeApp([BetweenTask::class], new MemoryCache(), $event);
+
+        (new Scheduler($app))->run();
+
+        self::assertTrue(BetweenTask::$handleCalled);
+        self::assertContains(TaskProcessed::class, $event->triggered);
+    }
+
+    public function test_between_blocks_task_before_interval(): void
+    {
+        Carbon::setTestNow('2024-01-01 09:00:00');
+
+        $event = new TestEvent();
+        $app   = $this->makeApp([BetweenTask::class], new MemoryCache(), $event);
+
+        (new Scheduler($app))->run();
+
+        self::assertFalse(BetweenTask::$handleCalled);
+        self::assertEmpty($event->triggered);
+    }
+
+    public function test_between_blocks_task_after_interval(): void
+    {
+        Carbon::setTestNow('2024-01-01 15:00:00');
+
+        $event = new TestEvent();
+        $app   = $this->makeApp([BetweenTask::class], new MemoryCache(), $event);
+
+        (new Scheduler($app))->run();
+
+        self::assertFalse(BetweenTask::$handleCalled);
+        self::assertEmpty($event->triggered);
+    }
+
+    public function test_between_supports_overnight_interval_runs_late_night(): void
+    {
+        // 23:00-01:00 区间：在 23:30（区间内）应允许
+        Carbon::setTestNow('2024-01-01 23:30:00');
+
+        $event = new TestEvent();
+        $app   = $this->makeApp([BetweenOvernightTask::class], new MemoryCache(), $event);
+
+        (new Scheduler($app))->run();
+
+        self::assertTrue(BetweenOvernightTask::$handleCalled);
+        self::assertContains(TaskProcessed::class, $event->triggered);
+    }
+
+    public function test_between_supports_overnight_interval_runs_after_midnight(): void
+    {
+        // 23:00-01:00 区间：在 00:30（跨零点后，仍在区间内）应允许
+        Carbon::setTestNow('2024-01-02 00:30:00');
+
+        $event = new TestEvent();
+        $app   = $this->makeApp([BetweenOvernightTask::class], new MemoryCache(), $event);
+
+        (new Scheduler($app))->run();
+
+        self::assertTrue(BetweenOvernightTask::$handleCalled);
+        self::assertContains(TaskProcessed::class, $event->triggered);
+    }
+
+    public function test_between_blocks_outside_overnight_interval(): void
+    {
+        // 23:00-01:00 区间：在 22:00（区间之前）应拒绝
+        Carbon::setTestNow('2024-01-01 22:00:00');
+
+        $event = new TestEvent();
+        $app   = $this->makeApp([BetweenOvernightTask::class], new MemoryCache(), $event);
+
+        (new Scheduler($app))->run();
+
+        self::assertFalse(BetweenOvernightTask::$handleCalled);
+        self::assertEmpty($event->triggered);
+    }
+
+    public function test_between_blocks_outside_overnight_interval_after_window(): void
+    {
+        // 23:00-01:00 区间：在 02:00（区间之后）应拒绝
+        Carbon::setTestNow('2024-01-02 02:00:00');
+
+        $event = new TestEvent();
+        $app   = $this->makeApp([BetweenOvernightTask::class], new MemoryCache(), $event);
+
+        (new Scheduler($app))->run();
+
+        self::assertFalse(BetweenOvernightTask::$handleCalled);
+        self::assertEmpty($event->triggered);
+    }
+
+    public function test_unless_between_runs_outside_interval(): void
+    {
+        // unlessBetween(12:00,14:00)：在 10:00（区间外）应运行
+        Carbon::setTestNow('2024-01-01 10:00:00');
+
+        $event = new TestEvent();
+        $app   = $this->makeApp([UnlessBetweenTask::class], new MemoryCache(), $event);
+
+        (new Scheduler($app))->run();
+
+        self::assertTrue(UnlessBetweenTask::$handleCalled);
+        self::assertContains(TaskProcessed::class, $event->triggered);
+    }
+
+    public function test_unless_between_skips_within_interval(): void
+    {
+        // unlessBetween(12:00,14:00)：在 13:00（区间内）应跳过
+        Carbon::setTestNow('2024-01-01 13:00:00');
+
+        $event = new TestEvent();
+        $app   = $this->makeApp([UnlessBetweenTask::class], new MemoryCache(), $event);
+
+        (new Scheduler($app))->run();
+
+        self::assertFalse(UnlessBetweenTask::$handleCalled);
+        self::assertEmpty($event->triggered);
     }
 }

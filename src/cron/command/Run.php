@@ -12,12 +12,8 @@ use yunwuxin\cron\Scheduler;
 
 class Run extends Command
 {
-    /** @var Carbon */
-    protected $startedAt;
-
     protected function configure()
     {
-        $this->startedAt = Carbon::now();
         $this->setName('cron:run');
     }
 
@@ -38,7 +34,10 @@ class Run extends Command
         });
 
         $this->app->event->listen(TaskSkipped::class, function (TaskSkipped $event) {
-            $this->output->writeln('<info>Skipping task (has already run on another server):</info> ' . $event->getName());
+            $reason = $event->reason === 'overlapping'
+                ? 'previous run not finished'
+                : 'has already run on another server';
+            $this->output->writeln("<info>Skipping task ({$reason}):</info> " . $event->getName());
         });
 
         $this->app->event->listen(TaskFailed::class, function (TaskFailed $event) {

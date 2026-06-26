@@ -3,7 +3,7 @@
 namespace yunwuxin\cron;
 
 use Carbon\Carbon;
-use Exception;
+use Throwable;
 use think\App;
 use think\cache\Driver;
 use yunwuxin\cron\event\TaskFailed;
@@ -35,22 +35,29 @@ class Scheduler
         $this->startedAt = Carbon::now();
         foreach ($this->tasks as $taskClass) {
 
-            if (is_subclass_of($taskClass, Task::class)) {
+            if (is_string($taskClass) && class_exists($taskClass) && is_subclass_of($taskClass, Task::class)) {
 
                 /** @var Task $task */
-                $task = $this->app->invokeClass($taskClass, [$this->cache]);
-                if ($task->isDue()) {
+                $task = $this->app->invokeClass($taskClass, [$this->app, $this->cache]);
+
+                try {
+                    if (!$task->isDue()) {
+                        continue;
+                    }
 
                     if (!$task->filtersPass()) {
                         continue;
                     }
+                } catch (Throwable $e) {
+                    $this->app->event->trigger(new TaskFailed($task, $e));
+                    continue;
+                }
 
-                    if ($task->onOneServer) {
-                        $this->runSingleServerTask($task);
-                    } else {
-                        $this->runTask($task);
-                    }
+                $ran = $task->onOneServer
+                    ? $this->runSingleServerTask($task)
+                    : $this->runTask($task);
 
+                if ($ran) {
                     $this->app->event->trigger(new TaskProcessed($task));
                 }
             }
@@ -58,37 +65,45 @@ class Scheduler
     }
 
     /**
-     * @param $task Task
+     * @param Task $task
      * @return bool
      */
-    protected function serverShouldRun($task)
+    protected function serverShouldRun($task): bool
     {
         $key = $task->mutexName() . $this->startedAt->format('Hi');
+
         if ($this->cache->has($key)) {
             return false;
         }
-        $this->cache->set($key, true, 60);
-        return true;
-    }
 
-    protected function runSingleServerTask($task)
-    {
-        if ($this->serverShouldRun($task)) {
-            $this->runTask($task);
-        } else {
-            $this->app->event->trigger(new TaskSkipped($task));
-        }
+        return $this->cache->set($key, true, 120);
     }
 
     /**
-     * @param $task Task
+     * @param Task $task
+     * @return bool 任务是否实际执行（false 表示被跳过）
      */
-    protected function runTask($task)
+    protected function runSingleServerTask(Task $task): bool
+    {
+        if ($this->serverShouldRun($task)) {
+            return $this->runTask($task);
+        }
+
+        $this->app->event->trigger(new TaskSkipped($task));
+        return false;
+    }
+
+    /**
+     * @param Task $task
+     * @return bool 任务是否成功执行（异常或 withoutOverlapping 跳过时返回 false）
+     */
+    protected function runTask(Task $task): bool
     {
         try {
-            $task->run();
-        } catch (Exception $e) {
+            return $task->run();
+        } catch (Throwable $e) {
             $this->app->event->trigger(new TaskFailed($task, $e));
+            return false;
         }
     }
 }
