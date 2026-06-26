@@ -38,7 +38,7 @@ final class TaskTest extends TestCase
             {
             }
 
-            public function handle(): void
+            protected function execute(): void
             {
             }
         };
@@ -61,7 +61,7 @@ final class TaskTest extends TestCase
             {
             }
 
-            public function handle(): void
+            protected function execute(): void
             {
             }
         };
@@ -82,7 +82,7 @@ final class TaskTest extends TestCase
             {
             }
 
-            public function handle(): void
+            protected function execute(): void
             {
             }
         };
@@ -104,7 +104,7 @@ final class TaskTest extends TestCase
                 $this->when(static fn () => true);
             }
 
-            public function handle(): void
+            protected function execute(): void
             {
             }
         };
@@ -126,7 +126,7 @@ final class TaskTest extends TestCase
                 $this->when(static fn () => false);
             }
 
-            public function handle(): void
+            protected function execute(): void
             {
             }
         };
@@ -148,7 +148,7 @@ final class TaskTest extends TestCase
                 $this->skip(static fn () => true);
             }
 
-            public function handle(): void
+            protected function execute(): void
             {
             }
         };
@@ -170,7 +170,7 @@ final class TaskTest extends TestCase
                 $this->skip(static fn () => false);
             }
 
-            public function handle(): void
+            protected function execute(): void
             {
             }
         };
@@ -191,7 +191,7 @@ final class TaskTest extends TestCase
             {
             }
 
-            public function handle(): void
+            protected function execute(): void
             {
             }
         };
@@ -216,7 +216,7 @@ final class TaskTest extends TestCase
             {
             }
 
-            public function handle(): void
+            protected function execute(): void
             {
             }
         };
@@ -227,7 +227,7 @@ final class TaskTest extends TestCase
         self::assertTrue($task->onOneServer);
     }
 
-    public function test_run_invokes_handle_and_manages_mutex(): void
+    public function test_run_invokes_execute_and_manages_mutex(): void
     {
         $cacheData = [];
         $cache = new class($cacheData) extends Cache {
@@ -241,21 +241,21 @@ final class TaskTest extends TestCase
 
         $task = new class($this->makeApp(), $cache) extends Task {
             public $withoutOverlapping = true;
-            public bool $handleCalled = false;
+            public bool $executeCalled = false;
 
             protected function configure(): void
             {
             }
 
-            public function handle(): void
+            protected function execute(): void
             {
-                $this->handleCalled = true;
+                $this->executeCalled = true;
             }
         };
 
         $task->run();
 
-        self::assertTrue($task->handleCalled);
+        self::assertTrue($task->executeCalled);
     }
 
     public function test_run_skips_when_mutex_cannot_be_created(): void
@@ -270,20 +270,20 @@ final class TaskTest extends TestCase
 
         $task = new class($this->makeApp(), $cache) extends Task {
             public $withoutOverlapping = true;
-            public bool $handleCalled = false;
+            public bool $executeCalled = false;
 
             protected function configure(): void
             {
             }
 
-            public function handle(): void
+            protected function execute(): void
             {
-                $this->handleCalled = true;
+                $this->executeCalled = true;
             }
         };
 
         $task->run();
 
-        self::assertFalse($task->handleCalled);
+        self::assertFalse($task->executeCalled);
     }
 }

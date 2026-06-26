@@ -100,46 +100,46 @@ class TestEvent
 class AlwaysDueTask extends Task
 {
     public $expression = '* * * * *';
-    public static bool $handleCalled = false;
+    public static bool $executeCalled = false;
 
     protected function configure(): void
     {
     }
 
-    public function handle(): void
+    protected function execute(): void
     {
-        self::$handleCalled = true;
+        self::$executeCalled = true;
     }
 }
 
 class NeverDueTask extends Task
 {
     public $expression = '0 0 1 1 *'; // 1月1日 00:00，永远不会到期
-    public static bool $handleCalled = false;
+    public static bool $executeCalled = false;
 
     protected function configure(): void
     {
     }
 
-    public function handle(): void
+    protected function execute(): void
     {
-        self::$handleCalled = true;
+        self::$executeCalled = true;
     }
 }
 
 class FilteredTask extends Task
 {
     public $expression = '* * * * *';
-    public static bool $handleCalled = false;
+    public static bool $executeCalled = false;
 
     protected function configure(): void
     {
         $this->skip(static fn () => true);
     }
 
-    public function handle(): void
+    protected function execute(): void
     {
-        self::$handleCalled = true;
+        self::$executeCalled = true;
     }
 }
 
@@ -151,7 +151,7 @@ class FailingTask extends Task
     {
     }
 
-    public function handle(): void
+    protected function execute(): void
     {
         throw new Exception('task failed');
     }
@@ -161,15 +161,15 @@ class SingleServerTask extends Task
 {
     public $expression = '* * * * *';
     public $onOneServer = true;
-    public static bool $handleCalled = false;
+    public static bool $executeCalled = false;
 
     protected function configure(): void
     {
     }
 
-    public function handle(): void
+    protected function execute(): void
     {
-        self::$handleCalled = true;
+        self::$executeCalled = true;
     }
 
     public function mutexName(): string
@@ -184,16 +184,16 @@ class SingleServerTask extends Task
 class BetweenTask extends Task
 {
     public $expression = '* * * * *';
-    public static bool $handleCalled = false;
+    public static bool $executeCalled = false;
 
     protected function configure(): void
     {
         $this->between('10:00', '14:00');
     }
 
-    public function handle(): void
+    protected function execute(): void
     {
-        self::$handleCalled = true;
+        self::$executeCalled = true;
     }
 }
 
@@ -203,16 +203,16 @@ class BetweenTask extends Task
 class BetweenOvernightTask extends Task
 {
     public $expression = '* * * * *';
-    public static bool $handleCalled = false;
+    public static bool $executeCalled = false;
 
     protected function configure(): void
     {
         $this->between('23:00', '01:00');
     }
 
-    public function handle(): void
+    protected function execute(): void
     {
-        self::$handleCalled = true;
+        self::$executeCalled = true;
     }
 }
 
@@ -222,16 +222,16 @@ class BetweenOvernightTask extends Task
 class UnlessBetweenTask extends Task
 {
     public $expression = '* * * * *';
-    public static bool $handleCalled = false;
+    public static bool $executeCalled = false;
 
     protected function configure(): void
     {
         $this->unlessBetween('12:00', '14:00');
     }
 
-    public function handle(): void
+    protected function execute(): void
     {
-        self::$handleCalled = true;
+        self::$executeCalled = true;
     }
 }
 
@@ -240,13 +240,13 @@ final class SchedulerTest extends TestCase
     protected function setUp(): void
     {
         // 重置所有静态标志
-        AlwaysDueTask::$handleCalled       = false;
-        NeverDueTask::$handleCalled        = false;
-        FilteredTask::$handleCalled        = false;
-        SingleServerTask::$handleCalled    = false;
-        BetweenTask::$handleCalled         = false;
-        BetweenOvernightTask::$handleCalled = false;
-        UnlessBetweenTask::$handleCalled   = false;
+        AlwaysDueTask::$executeCalled       = false;
+        NeverDueTask::$executeCalled        = false;
+        FilteredTask::$executeCalled        = false;
+        SingleServerTask::$executeCalled    = false;
+        BetweenTask::$executeCalled         = false;
+        BetweenOvernightTask::$executeCalled = false;
+        UnlessBetweenTask::$executeCalled   = false;
 
         // 清除 Carbon 的时间 mock（其他测试可能留下的状态）
         Carbon::setTestNow(null);
@@ -282,8 +282,8 @@ final class SchedulerTest extends TestCase
 
         (new Scheduler($app))->run();
 
-        self::assertFalse(NeverDueTask::$handleCalled);
-        self::assertFalse(FilteredTask::$handleCalled);
+        self::assertFalse(NeverDueTask::$executeCalled);
+        self::assertFalse(FilteredTask::$executeCalled);
         self::assertEmpty($event->triggered);
     }
 
@@ -294,7 +294,7 @@ final class SchedulerTest extends TestCase
 
         (new Scheduler($app))->run();
 
-        self::assertTrue(AlwaysDueTask::$handleCalled);
+        self::assertTrue(AlwaysDueTask::$executeCalled);
         self::assertContains(TaskProcessed::class, $event->triggered);
     }
 
@@ -315,7 +315,7 @@ final class SchedulerTest extends TestCase
 
         (new Scheduler($app))->run();
 
-        self::assertTrue(SingleServerTask::$handleCalled);
+        self::assertTrue(SingleServerTask::$executeCalled);
         self::assertContains(TaskProcessed::class, $event->triggered);
     }
 
@@ -331,7 +331,7 @@ final class SchedulerTest extends TestCase
 
         (new Scheduler($app))->run();
 
-        self::assertFalse(SingleServerTask::$handleCalled);
+        self::assertFalse(SingleServerTask::$executeCalled);
         self::assertContains(TaskSkipped::class, $event->triggered);
     }
 
@@ -346,7 +346,7 @@ final class SchedulerTest extends TestCase
 
         (new Scheduler($app))->run();
 
-        self::assertTrue(BetweenTask::$handleCalled);
+        self::assertTrue(BetweenTask::$executeCalled);
         self::assertContains(TaskProcessed::class, $event->triggered);
     }
 
@@ -359,7 +359,7 @@ final class SchedulerTest extends TestCase
 
         (new Scheduler($app))->run();
 
-        self::assertFalse(BetweenTask::$handleCalled);
+        self::assertFalse(BetweenTask::$executeCalled);
         self::assertEmpty($event->triggered);
     }
 
@@ -372,7 +372,7 @@ final class SchedulerTest extends TestCase
 
         (new Scheduler($app))->run();
 
-        self::assertFalse(BetweenTask::$handleCalled);
+        self::assertFalse(BetweenTask::$executeCalled);
         self::assertEmpty($event->triggered);
     }
 
@@ -386,7 +386,7 @@ final class SchedulerTest extends TestCase
 
         (new Scheduler($app))->run();
 
-        self::assertTrue(BetweenOvernightTask::$handleCalled);
+        self::assertTrue(BetweenOvernightTask::$executeCalled);
         self::assertContains(TaskProcessed::class, $event->triggered);
     }
 
@@ -400,7 +400,7 @@ final class SchedulerTest extends TestCase
 
         (new Scheduler($app))->run();
 
-        self::assertTrue(BetweenOvernightTask::$handleCalled);
+        self::assertTrue(BetweenOvernightTask::$executeCalled);
         self::assertContains(TaskProcessed::class, $event->triggered);
     }
 
@@ -414,7 +414,7 @@ final class SchedulerTest extends TestCase
 
         (new Scheduler($app))->run();
 
-        self::assertFalse(BetweenOvernightTask::$handleCalled);
+        self::assertFalse(BetweenOvernightTask::$executeCalled);
         self::assertEmpty($event->triggered);
     }
 
@@ -428,7 +428,7 @@ final class SchedulerTest extends TestCase
 
         (new Scheduler($app))->run();
 
-        self::assertFalse(BetweenOvernightTask::$handleCalled);
+        self::assertFalse(BetweenOvernightTask::$executeCalled);
         self::assertEmpty($event->triggered);
     }
 
@@ -442,7 +442,7 @@ final class SchedulerTest extends TestCase
 
         (new Scheduler($app))->run();
 
-        self::assertTrue(UnlessBetweenTask::$handleCalled);
+        self::assertTrue(UnlessBetweenTask::$executeCalled);
         self::assertContains(TaskProcessed::class, $event->triggered);
     }
 
@@ -456,7 +456,7 @@ final class SchedulerTest extends TestCase
 
         (new Scheduler($app))->run();
 
-        self::assertFalse(UnlessBetweenTask::$handleCalled);
+        self::assertFalse(UnlessBetweenTask::$executeCalled);
         self::assertEmpty($event->triggered);
     }
 }
