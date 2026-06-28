@@ -170,8 +170,6 @@ protected function configure()
 
 ### 防止重叠执行 `withoutOverlapping`
 
-使用缓存（推荐 Redis）作为互斥锁，避免上一次尚未结束时新的一次又被触发。
-
 ```php
 $this->daily()
      ->withoutOverlapping(); // 默认为锁 1440 分钟（24 小时）过期
